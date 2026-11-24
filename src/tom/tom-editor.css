@@ -1,0 +1,487 @@
+/* ==========================================================================
+   TOM Wheel editor — in-place editing on top of the Segment Wheel styles.
+   Reuses the --sw-* theme variables. No separate edit mode: fields look like
+   text, show a dashed outline on hover and become inputs on focus.
+   ========================================================================== */
+
+/* ---------- Editable text ---------- */
+:where(.te-field) {
+  font: inherit;
+  color: inherit;
+}
+
+.te-editor .te-field {
+  display: block;
+  width: calc(100% + 0.7rem);
+  margin: 0 -0.35rem;
+  padding: 0.12rem 0.35rem;
+  border: 1px dashed transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.te-editor .te-field:hover {
+  border-color: var(--sw-border);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: text;
+}
+
+.te-editor .te-field:focus {
+  outline: none;
+  border-style: solid;
+  border-color: var(--sw-accent);
+  background: var(--sw-surface);
+}
+
+.te-editor .te-field::placeholder {
+  color: var(--sw-text-muted);
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.te-editor .te-name {
+  margin-top: 0.1rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.te-editor .te-description {
+  margin-top: 0.85rem;
+  font-size: 0.96rem;
+  line-height: 1.6;
+}
+
+.te-details-text {
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+/* ---------- Icon picker ---------- */
+.te-icon-picker {
+  position: relative;
+  flex: none;
+}
+
+.te-icon-button {
+  position: relative;
+  border: 0;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.te-icon-button:hover,
+.te-icon-button[aria-expanded="true"] {
+  box-shadow: 0 0 0 2px var(--sw-accent);
+}
+
+.te-icon-button:focus-visible {
+  outline: 2px solid var(--sw-focus);
+  outline-offset: 2px;
+}
+
+.te-icon-badge {
+  position: absolute;
+  right: -0.3rem;
+  bottom: -0.3rem;
+  display: grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  background: var(--sw-accent);
+  color: var(--sw-surface);
+}
+
+.te-icon-badge svg {
+  width: 0.7rem !important;
+  height: 0.7rem !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+}
+
+.te-icon-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(6, 2.4rem);
+  gap: 0.3rem;
+  padding: 0.55rem;
+  border: 1px solid var(--sw-border);
+  border-radius: 0.8rem;
+  background: var(--sw-surface-raised);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
+}
+
+.te-icon-option {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.55rem;
+  background: var(--sw-surface);
+  color: var(--sw-text);
+  cursor: pointer;
+}
+
+.te-icon-option svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.te-icon-option:hover { border-color: var(--sw-accent); }
+.te-icon-option.is-current {
+  border-color: var(--sw-accent);
+  background: var(--sw-segment-active);
+}
+.te-icon-option:focus-visible {
+  outline: 2px solid var(--sw-focus);
+  outline-offset: 1px;
+}
+
+/* ---------- Facts ---------- */
+.te-facts:empty { display: none; }
+
+.te-facts .te-fact {
+  position: relative;
+  padding-right: 1.6rem;
+}
+
+.te-editor .te-fact-label {
+  color: var(--sw-text-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.te-editor .te-fact-value {
+  margin-top: 0.1rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.te-fact .te-remove {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.3rem;
+}
+
+/* ---------- Checklist ---------- */
+.sw-details-points.te-points li {
+  grid-template-columns: 1.1rem minmax(0, 1fr) auto;
+}
+
+.sw-details-points.te-points li > svg { margin-top: 0.3rem; }
+
+.sw-details-points.te-points .te-remove svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin: 0;
+  stroke: currentColor;
+}
+
+.sw-details-points.te-points .te-remove { margin-top: 0.15rem; }
+
+/* ---------- Small buttons ---------- */
+.te-remove {
+  display: grid;
+  place-items: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--sw-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.te-remove svg,
+.te-add-inline svg,
+.te-add svg,
+.te-row-actions svg,
+.te-saved svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.te-points li:hover .te-remove,
+.te-points li:focus-within .te-remove,
+.te-fact:hover .te-remove,
+.te-fact:focus-within .te-remove,
+.te-remove:focus-visible {
+  opacity: 1;
+}
+
+.te-remove:hover { color: #ff9b9b; }
+.te-remove:focus-visible {
+  outline: 2px solid var(--sw-focus);
+  outline-offset: 1px;
+}
+
+.te-add-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  justify-self: start;
+  margin-top: 0.45rem;
+  padding: 0.15rem 0.35rem;
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--sw-accent);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.te-add-inline:hover { opacity: 1; text-decoration: underline; }
+.te-add-inline:focus-visible {
+  outline: 2px solid var(--sw-focus);
+  opacity: 1;
+}
+
+.te-link {
+  padding: 0.1rem 0.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--sw-accent);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.te-link:hover { text-decoration: underline; }
+.te-link.is-armed { color: #ffb36b; }
+.te-link:focus-visible {
+  outline: 2px solid var(--sw-focus);
+  border-radius: 0.3rem;
+}
+
+/* ---------- Wheel centre card (under the wheel) ---------- */
+.te-centre {
+  display: grid;
+  gap: 0.3rem;
+  width: 100%;
+  max-width: 37rem;
+  padding: 0.85rem 1.1rem 0.75rem;
+  border: 1px solid var(--sw-border);
+  border-radius: 1rem;
+  background: var(--sw-surface);
+}
+
+.te-section-label {
+  margin: 0 0 0.1rem;
+  color: var(--sw-text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.te-editor .te-centre-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.te-editor .te-centre-subtitle {
+  color: var(--sw-text-muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.te-centre-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  margin-top: 0.35rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--sw-border);
+}
+
+.te-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--sw-text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.te-saved svg { color: var(--sw-accent); }
+.te-saved.is-error,
+.te-saved.is-error svg { color: #ffb36b; }
+
+/* ---------- Component list ---------- */
+.te-components {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.te-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.te-list-head .sw-details-sub { margin: 0; }
+
+.te-count {
+  color: var(--sw-text-muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.te-item {
+  position: relative;
+}
+
+.te-list .sw-list-row {
+  grid-template-columns: 1.9rem minmax(0, 1fr);
+  padding-right: 6.6rem;
+}
+
+.te-row-actions {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  display: flex;
+  gap: 0.2rem;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.te-item:hover .te-row-actions,
+.te-item:focus-within .te-row-actions,
+.te-item:has(.is-selected) .te-row-actions {
+  opacity: 1;
+}
+
+.te-row-actions button {
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid var(--sw-border);
+  border-radius: 0.45rem;
+  background: var(--sw-surface);
+  color: var(--sw-text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.te-row-actions button:hover:not(:disabled) {
+  border-color: var(--sw-accent);
+  color: var(--sw-text);
+}
+
+.te-row-actions button.is-danger:hover:not(:disabled) {
+  border-color: #ff9b9b;
+  color: #ff9b9b;
+}
+
+.te-row-actions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.te-row-actions button:focus-visible {
+  outline: 2px solid var(--sw-focus);
+  outline-offset: 1px;
+}
+
+.te-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px dashed var(--sw-border);
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--sw-accent);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.te-add:hover:not(:disabled) {
+  border-color: var(--sw-accent);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.te-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.te-add:focus-visible {
+  outline: 2px solid var(--sw-focus);
+  outline-offset: 2px;
+}
+
+.te-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--sw-border);
+  border-radius: 0.65rem;
+  background: var(--sw-surface-raised);
+  font-size: 0.84rem;
+}
+
+.te-hint {
+  margin: 0;
+  color: var(--sw-text-muted);
+  font-size: 0.76rem;
+}
+
+/* Touch screens have no hover: keep the controls visible. */
+@media (hover: none) {
+  .te-row-actions,
+  .te-remove {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .te-field,
+  .te-row-actions,
+  .te-remove {
+    transition: none;
+  }
+}
