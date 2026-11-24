@@ -9,6 +9,7 @@ import {
 } from "../library/segment-wheel";
 import { EditableText } from "./EditableText";
 import { IconPicker } from "./IconPicker";
+import { ThemeColorControl, type ThemeColorControlProps } from "./ThemeColorControl";
 import { icons } from "./icons";
 import { DEFAULT_LIMITS, type TomComponent, type TomLimits, type TomWheelData } from "./types";
 import { useTomWheel } from "./useTomWheel";
@@ -22,6 +23,10 @@ export interface TomWheelEditorProps {
   limits?: TomLimits;
   theme?: Partial<WheelTheme>;
   geometry?: Partial<WheelGeometry>;
+  /** Shows the theme colour control when provided. Theme state is owned by the host. */
+  themeColor?: ThemeColorControlProps;
+  /** Called by "Reset to default" in addition to resetting the content (e.g. to reset the theme). */
+  onReset?: () => void;
 }
 
 type FocusRequest =
@@ -56,7 +61,15 @@ const PATH = {
  * the details card to change it. Components can be added, removed and reordered
  * from the list; the wheel re-lays itself out after every change.
  */
-export function TomWheelEditor({ defaultData, storageKey, limits = DEFAULT_LIMITS, theme, geometry }: TomWheelEditorProps) {
+export function TomWheelEditor({
+  defaultData,
+  storageKey,
+  limits = DEFAULT_LIMITS,
+  theme,
+  geometry,
+  themeColor,
+  onReset,
+}: TomWheelEditorProps) {
   const { data, saved, actions } = useTomWheel(defaultData, storageKey, limits);
   const resolvedTheme = resolveTheme(theme);
   const comps = data.components;
@@ -183,6 +196,7 @@ export function TomWheelEditor({ defaultData, storageKey, limits = DEFAULT_LIMIT
       return;
     }
     actions.reset();
+    onReset?.();
     setResetArmed(false);
     setUndo(null);
     setSelectedId(defaultData.components[0]?.id ?? "");
@@ -256,6 +270,7 @@ export function TomWheelEditor({ defaultData, storageKey, limits = DEFAULT_LIMIT
               value={data.subtitle}
               onChange={actions.setSubtitle}
             />
+            {themeColor && <ThemeColorControl {...themeColor} />}
             <div className="te-centre-foot">
               <span className={`te-saved ${saved ? "" : "is-error"}`}>
                 <Svg d={saved ? PATH.check : PATH.close} />

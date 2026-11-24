@@ -134,8 +134,8 @@ body {
 }
 
 .gl-stage.is-dark {
-  background: linear-gradient(160deg, #0b1f36 0%, #11304f 100%);
-  color: #eef3f8;
+  background: linear-gradient(160deg, var(--gl-stage-from, #0b1f36) 0%, var(--gl-stage-to, #11304f) 100%);
+  color: var(--gl-stage-text, #eef3f8);
 }
 
 .gl-stage-head {

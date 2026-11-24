@@ -84,6 +84,8 @@ export interface WheelTheme {
   hub: string;
   hubRing: string;
   label: string;
+  /** Label/icon colour on the selected segment (dark when the selected fill is light). */
+  labelActive: string;
   centerText: string;
   centerIcon: string;
   focus: string;

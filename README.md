@@ -10,6 +10,8 @@ Library.
   components; the wheel recalculates its geometry immediately.
 - **Everything is edited in place, in one interface.** There is no separate
   view or edit mode: click any text to change it.
+- **Theme colour:** pick any primary colour. A complete, readable theme is
+  generated from it automatically.
 - Changes are kept in the browser (Local Storage) and survive a page refresh.
 
 > Status: **prototype for review.** It is not yet packaged or published as a
@@ -52,7 +54,8 @@ one screen:
 | Add a component | **+ Add component** under the list. It is inserted after the selected component and its name is ready to type. |
 | Delete a component | The bin button on the list row (or <kbd>Delete</kbd> on the row). **Undo** is offered for a few seconds. |
 | Reorder | The ↑ / ↓ buttons on the list row, or <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> on the row. |
-| Start over | **Reset to default** in the Wheel centre card (click twice to confirm). |
+| Change the theme colour | **Theme colour** in the Wheel centre card: click the swatch for the colour picker, or type a HEX value (`#ff7a00`, or `f80` when you leave the field). **Default colour** restores the approved navy theme only. |
+| Start over | **Reset to default** in the Wheel centre card (click twice to confirm). It restores the default content and the default theme. |
 
 Hovering a segment or list row highlights it without changing the selection.
 The details card always shows the selected component.
@@ -93,6 +96,59 @@ deterministic, and nothing in it assumes a particular number of segments.
 
 ---
 
+## Theme colour generation
+
+`src/library/theme-generator/` turns one primary colour into a full palette.
+It is dependency-free and not tied to the wheel, so other infographics can use
+it.
+
+1. **Analyse the colour.** The primary is converted to OKLCH, a colour space
+   where equal lightness steps look equal across hues. The generator reads its
+   hue, and its chroma (how colourful it is).
+2. **Keep the approved structure.** Every colour role keeps the lightness of the
+   approved design: dark stage and panels, a dark ring, mid-tone muted segments,
+   light text and a white hub. Each role takes the primary's hue, with chroma
+   scaled by how colourful the primary is.
+   - A grey primary gives a neutral theme.
+   - A vivid primary gives a richer theme.
+   - Accents use a neighbouring hue, 20° away, as in the original design.
+3. **Check readability.** Every foreground is measured against its background
+   with WCAG contrast, and lightened or darkened until it passes:
+
+   | Pair | Minimum contrast |
+   |---|---|
+   | Body and editor text on panels | 7:1 |
+   | Secondary text and accents | 4.5:1 |
+   | Wheel ring and markers | 3:1 |
+   | Hub title | 7:1 |
+   | Labels on muted segments | ≈3:1 (the approved design's own level) |
+
+4. **The selected segment keeps your exact colour whenever possible.** Its
+   label turns white or dark, whichever is readable at AA 4.5:1.
+   - Vivid light colours such as orange, yellow and cyan keep their colour and
+     get dark labels.
+   - A mid-tone colour that would be unreadable with either label colour, or
+     that would look like the normal or hover segments, is darkened slightly.
+5. **Map to the wheel.** `paletteToWheelTheme()` maps the palette onto the
+   wheel's `--sw-*` CSS variables. The stage background uses `--gl-stage-*`.
+   No component contains theme colours.
+
+The approved navy (`#1f4670`) returns the original palette verbatim, so the
+default theme is identical to the approved design.
+
+```ts
+import { generatePalette } from "./library/theme-generator";
+import { paletteToWheelTheme } from "./library/segment-wheel";
+
+const palette = generatePalette("#7b2cbf");          // full semantic palette
+<TomWheelEditor theme={paletteToWheelTheme(palette)} … />
+```
+
+The theme colour is stored separately from the content, under
+`agile-infographics.tom-wheel.theme.v1`, as `{ "version": 1, "primary": "#rrggbb" }`.
+
+---
+
 ## Project structure
 
 ```text
@@ -105,6 +161,10 @@ src/
 │   ├── theme.ts, types.ts         # theme → CSS variables, public types
 │   ├── segment-wheel.css
 │   └── index.ts                   # public API
+├── library/theme-generator/       # THEMING — one colour → full readable palette (reusable)
+│   ├── color.ts                   # HEX ⇄ OKLCH, gamut mapping, WCAG contrast
+│   ├── generatePalette.ts         # palette generation + approved default palette
+│   └── index.ts
 ├── tom/                           # TOM WHEEL — data, state, editing UI
 │   ├── types.ts                   # TomWheelData / TomComponent (plain JSON) + limits
 │   ├── default-tom.ts             # initial 7-component configuration
@@ -114,6 +174,8 @@ src/
 │   ├── TomWheelEditor.tsx         # the single editable interface
 │   ├── EditableText.tsx           # always-editable text field
 │   ├── IconPicker.tsx
+│   ├── ThemeColorControl.tsx      # colour picker + HEX field
+│   ├── useThemeColor.ts           # theme colour state + persistence
 │   ├── tom-editor.css
 │   └── index.ts
 └── gallery/                       # page shell (header, intro, stage)
@@ -172,7 +234,9 @@ const projectA: TomWheelData = {
 
 Optional props:
 - `limits`: minimum and maximum components, name length.
-- `theme`: colours and font.
+- `theme`: colours and font, e.g. `paletteToWheelTheme(generatePalette("#2e9d4f"))`.
+- `themeColor` and `onReset`: show the Theme colour control, and reset the
+  theme along with the content.
 - `geometry`: radii, separator width, start angle.
 
 ### Data persistence
@@ -187,7 +251,7 @@ Optional props:
 
 ---
 
-## Known limitations (prototype v0.4)
+## Known limitations (prototype v0.5)
 
 - Data lives only in the browser where it was edited. It is not shared between
   people or devices, and there is no import or export yet.
@@ -196,6 +260,14 @@ Optional props:
   quality.
 - Labels inside the wheel are small on phones. The list and details card stay
   fully readable.
+- Wheel labels on the muted segments keep the approved design's contrast,
+  about 3:1. That is AA for large text and graphics, not 4.5:1. All other
+  important text meets AA 4.5:1 or more.
+- Some mid-tone primaries, such as medium green or teal, are darkened slightly
+  so white labels stay readable, so the selected segment can be a little deeper
+  than the colour picked.
+- The colour applies to the wheel and its stage. The page header outside the
+  stage keeps the library's own branding.
 - No automated test suite is committed yet. The prototype was verified with
   scripted browser checks during development.
 - Not yet packaged as an npm library. The TOM code is consumed by copying the

@@ -89,6 +89,10 @@
 
 .sw-seg.is-disabled .sw-content { opacity: 0.75; }
 
+/* Selected segment: label/icon colour chosen for contrast with the selected fill. */
+.sw-seg.is-selected .sw-content { color: var(--sw-label-active); }
+.sw-seg.is-selected .sw-label { fill: var(--sw-label-active); }
+
 /* Slightly finer line icons inside the wheel. */
 .sw-icon { stroke-width: 1.4; }
 
@@ -245,7 +249,7 @@
   height: 3rem;
   border-radius: 0.8rem;
   background: var(--sw-segment-active);
-  color: var(--sw-label);
+  color: var(--sw-label-active);
 }
 
 .sw-details-icon svg,

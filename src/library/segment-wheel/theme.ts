@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import type { ThemePalette } from "../theme-generator/generatePalette";
 import type { WheelPanelLabels, WheelTheme } from "./types";
 
 /**
@@ -16,6 +17,7 @@ export const DEFAULT_THEME: WheelTheme = {
   hub: "#ffffff",
   hubRing: "transparent",
   label: "#ffffff",
+  labelActive: "#ffffff",
   centerText: "#122f4d",
   centerIcon: "#173d63",
   focus: "#29a8e0",
@@ -57,6 +59,7 @@ const VAR_NAMES: Record<keyof WheelTheme, string> = {
   hub: "--sw-hub",
   hubRing: "--sw-hub-ring",
   label: "--sw-label",
+  labelActive: "--sw-label-active",
   centerText: "--sw-center-text",
   centerIcon: "--sw-center-icon",
   focus: "--sw-focus",
@@ -70,6 +73,36 @@ const VAR_NAMES: Record<keyof WheelTheme, string> = {
   fontFamily: "--sw-font",
   dimOpacity: "--sw-dim",
 };
+
+/**
+ * Maps a generated palette (see library/theme-generator) onto the wheel's theme.
+ * With the default palette this reproduces DEFAULT_THEME exactly.
+ */
+export function paletteToWheelTheme(p: ThemePalette): WheelTheme {
+  return {
+    ...DEFAULT_THEME,
+    segment: p.muted,
+    segmentHover: p.mutedStrong,
+    segmentActive: p.primary,
+    segmentDisabled: p.mutedSoft,
+    segmentStroke: p.paper,
+    frame: p.paper,
+    disc: p.ink,
+    hub: p.paper,
+    label: p.onMuted,
+    labelActive: p.onPrimary,
+    centerText: p.inkOnLight,
+    centerIcon: p.inkOnLightSoft,
+    focus: p.focus,
+    marker: p.accentStrong,
+    surface: p.surface,
+    surfaceRaised: p.surfaceRaised,
+    border: p.border,
+    text: p.text,
+    textMuted: p.textMuted,
+    accent: p.accent,
+  };
+}
 
 /** Converts a theme into inline CSS custom properties for the component root. */
 export function themeToCssVars(theme: WheelTheme): CSSProperties {

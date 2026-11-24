@@ -20,7 +20,7 @@ export {
   wrapLabel,
 } from "./geometry";
 export type { MeasureText, Point, SegmentLayout } from "./geometry";
-export { DEFAULT_LABELS, DEFAULT_THEME, resolveTheme, themeToCssVars } from "./theme";
+export { DEFAULT_LABELS, DEFAULT_THEME, paletteToWheelTheme, resolveTheme, themeToCssVars } from "./theme";
 export type {
   WheelCenter,
   WheelConfig,

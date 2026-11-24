@@ -1,8 +1,12 @@
-import { DEFAULT_TOM, TomWheelEditor } from "../tom";
+import type { CSSProperties } from "react";
+import { paletteToWheelTheme } from "../library/segment-wheel";
+import { DEFAULT_TOM, TomWheelEditor, useThemeColor } from "../tom";
 import "./gallery.css";
 
 /** Local Storage key for the prototype's TOM wheel. Use a different key per project. */
 const STORAGE_KEY = "agile-infographics.tom-wheel.v1";
+/** The theme colour is stored separately from the wheel content. */
+const THEME_KEY = "agile-infographics.tom-wheel.theme.v1";
 
 function Logo() {
   return (
@@ -22,6 +26,15 @@ function Logo() {
 }
 
 export function Gallery() {
+  const theme = useThemeColor(THEME_KEY);
+  const { palette } = theme;
+  // The stage around the wheel follows the generated palette too.
+  const stageStyle = {
+    "--gl-stage-from": palette.canvas,
+    "--gl-stage-to": palette.canvasAlt,
+    "--gl-stage-text": palette.onCanvas,
+  } as CSSProperties;
+
   return (
     <div className="gl">
       <header className="gl-header">
@@ -33,7 +46,7 @@ export function Gallery() {
               <span className="gl-brand-name">Infographics Library</span>
             </span>
           </a>
-          <span className="gl-version">Prototype v0.4</span>
+          <span className="gl-version">Prototype v0.5</span>
         </div>
       </header>
 
@@ -47,18 +60,24 @@ export function Gallery() {
           </p>
         </section>
 
-        <section className="gl-stage is-dark" aria-labelledby="gl-stage-title">
+        <section className="gl-stage is-dark" style={stageStyle} aria-labelledby="gl-stage-title">
           <header className="gl-stage-head">
             <p className="gl-stage-kicker">Operating-model design</p>
             <h2 id="gl-stage-title" className="gl-stage-title">
               Generic TOM
             </h2>
             <p className="gl-stage-desc">
-              Click any text to edit it. Add, remove and reorder components in the list. Changes are saved in this
-              browser.
+              Click any text to edit it. Add, remove and reorder components in the list, and pick a theme colour
+              under the wheel. Changes are saved in this browser.
             </p>
           </header>
-          <TomWheelEditor defaultData={DEFAULT_TOM} storageKey={STORAGE_KEY} />
+          <TomWheelEditor
+            defaultData={DEFAULT_TOM}
+            storageKey={STORAGE_KEY}
+            theme={paletteToWheelTheme(palette)}
+            themeColor={{ value: theme.color, onChange: theme.setColor, onReset: theme.reset, isDefault: theme.isDefault }}
+            onReset={theme.reset}
+          />
         </section>
 
         <ul className="gl-tips" aria-label="How to interact">

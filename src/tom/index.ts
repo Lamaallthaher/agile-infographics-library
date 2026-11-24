@@ -5,5 +5,8 @@ export { ICON_KEYS, ICON_NAMES, icons, isIconKey } from "./icons";
 export type { IconKey } from "./icons";
 export { parseTomData, loadTomData, saveTomData, clearTomData } from "./storage";
 export { useTomWheel } from "./useTomWheel";
+export { useThemeColor } from "./useThemeColor";
+export { ThemeColorControl } from "./ThemeColorControl";
+export type { ThemeColorControlProps } from "./ThemeColorControl";
 export { DEFAULT_LIMITS } from "./types";
 export type { TomComponent, TomFact, TomLimits, TomWheelData } from "./types";
