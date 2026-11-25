@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
-import { normalizeHex } from "../library/theme-generator";
+import { normalizeHex } from "../../library/theme-generator";
+import "./editing.css";
 
 export interface ThemeColorControlProps {
   /** Current primary colour (#rrggbb). */

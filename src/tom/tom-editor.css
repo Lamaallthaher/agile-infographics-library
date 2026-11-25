@@ -4,44 +4,6 @@
    text, show a dashed outline on hover and become inputs on focus.
    ========================================================================== */
 
-/* ---------- Editable text ---------- */
-:where(.te-field) {
-  font: inherit;
-  color: inherit;
-}
-
-.te-editor .te-field {
-  display: block;
-  width: calc(100% + 0.7rem);
-  margin: 0 -0.35rem;
-  padding: 0.12rem 0.35rem;
-  border: 1px dashed transparent;
-  border-radius: 0.4rem;
-  background: transparent;
-  resize: none;
-  overflow: hidden;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.te-editor .te-field:hover {
-  border-color: var(--sw-border);
-  background: rgba(255, 255, 255, 0.03);
-  cursor: text;
-}
-
-.te-editor .te-field:focus {
-  outline: none;
-  border-style: solid;
-  border-color: var(--sw-accent);
-  background: var(--sw-surface);
-}
-
-.te-editor .te-field::placeholder {
-  color: var(--sw-text-muted);
-  opacity: 0.75;
-  font-style: italic;
-}
-
 .te-editor .te-name {
   margin-top: 0.1rem;
   font-size: 1.35rem;
@@ -58,95 +20,6 @@
 .te-details-text {
   font-size: 0.9rem;
   line-height: 1.55;
-}
-
-/* ---------- Icon picker ---------- */
-.te-icon-picker {
-  position: relative;
-  flex: none;
-}
-
-.te-icon-button {
-  position: relative;
-  border: 0;
-  cursor: pointer;
-  transition: box-shadow 0.15s ease;
-}
-
-.te-icon-button:hover,
-.te-icon-button[aria-expanded="true"] {
-  box-shadow: 0 0 0 2px var(--sw-accent);
-}
-
-.te-icon-button:focus-visible {
-  outline: 2px solid var(--sw-focus);
-  outline-offset: 2px;
-}
-
-.te-icon-badge {
-  position: absolute;
-  right: -0.3rem;
-  bottom: -0.3rem;
-  display: grid;
-  place-items: center;
-  width: 1.15rem;
-  height: 1.15rem;
-  border-radius: 50%;
-  background: var(--sw-accent);
-  color: var(--sw-surface);
-}
-
-.te-icon-badge svg {
-  width: 0.7rem !important;
-  height: 0.7rem !important;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linejoin: round;
-}
-
-.te-icon-menu {
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  left: 0;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: repeat(6, 2.4rem);
-  gap: 0.3rem;
-  padding: 0.55rem;
-  border: 1px solid var(--sw-border);
-  border-radius: 0.8rem;
-  background: var(--sw-surface-raised);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.35);
-}
-
-.te-icon-option {
-  display: grid;
-  place-items: center;
-  width: 2.4rem;
-  height: 2.4rem;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 0.55rem;
-  background: var(--sw-surface);
-  color: var(--sw-text);
-  cursor: pointer;
-}
-
-.te-icon-option svg {
-  width: 1.35rem;
-  height: 1.35rem;
-}
-
-.te-icon-option:hover { border-color: var(--sw-accent); }
-.te-icon-option.is-current {
-  border-color: var(--sw-accent);
-  background: var(--sw-segment-active);
-  color: var(--sw-label-active);
-}
-.te-icon-option:focus-visible {
-  outline: 2px solid var(--sw-focus);
-  outline-offset: 1px;
 }
 
 /* ---------- Facts ---------- */
@@ -195,21 +68,6 @@
 .sw-details-points.te-points .te-remove { margin-top: 0.15rem; }
 
 /* ---------- Small buttons ---------- */
-.te-remove {
-  display: grid;
-  place-items: center;
-  width: 1.3rem;
-  height: 1.3rem;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--sw-text-muted);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, color 0.15s ease;
-}
-
 .te-remove svg,
 .te-add-inline svg,
 .te-add svg,
@@ -230,54 +88,6 @@
 .te-fact:focus-within .te-remove,
 .te-remove:focus-visible {
   opacity: 1;
-}
-
-.te-remove:hover { color: #ff9b9b; }
-.te-remove:focus-visible {
-  outline: 2px solid var(--sw-focus);
-  outline-offset: 1px;
-}
-
-.te-add-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  justify-self: start;
-  margin-top: 0.45rem;
-  padding: 0.15rem 0.35rem;
-  border: 0;
-  border-radius: 0.35rem;
-  background: transparent;
-  color: var(--sw-accent);
-  font: inherit;
-  font-size: 0.76rem;
-  font-weight: 700;
-  cursor: pointer;
-  opacity: 0.8;
-}
-
-.te-add-inline:hover { opacity: 1; text-decoration: underline; }
-.te-add-inline:focus-visible {
-  outline: 2px solid var(--sw-focus);
-  opacity: 1;
-}
-
-.te-link {
-  padding: 0.1rem 0.2rem;
-  border: 0;
-  background: transparent;
-  color: var(--sw-accent);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.te-link:hover { text-decoration: underline; }
-.te-link.is-armed { color: #ffb36b; }
-.te-link:focus-visible {
-  outline: 2px solid var(--sw-focus);
-  border-radius: 0.3rem;
 }
 
 /* ---------- Wheel centre card (under the wheel) ---------- */
@@ -336,81 +146,6 @@
 .te-saved svg { color: var(--sw-accent); }
 .te-saved.is-error,
 .te-saved.is-error svg { color: #ffb36b; }
-
-/* ---------- Theme colour ---------- */
-.te-theme {
-  display: grid;
-  gap: 0.35rem;
-  margin-top: 0.45rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--sw-border);
-}
-
-.te-theme-label {
-  color: var(--sw-text-muted);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.te-theme-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.75rem;
-}
-
-/* The native colour input sits invisibly on top of the swatch, so the swatch opens the picker. */
-.te-swatch {
-  position: relative;
-  flex: none;
-  width: 2.1rem;
-  height: 2.1rem;
-  border: 2px solid var(--sw-text);
-  border-radius: 0.55rem;
-  box-shadow: 0 0 0 1px var(--sw-border);
-  cursor: pointer;
-}
-
-.te-swatch-input {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.te-swatch:focus-within {
-  outline: 2px solid var(--sw-focus);
-  outline-offset: 2px;
-}
-
-.te-hex {
-  width: 7.2rem;
-  padding: 0.35rem 0.55rem;
-  border: 1px solid var(--sw-border);
-  border-radius: 0.5rem;
-  background: var(--sw-surface-raised);
-  color: var(--sw-text);
-  font: inherit;
-  font-size: 0.86rem;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.03em;
-  text-transform: lowercase;
-}
-
-.te-hex:focus {
-  outline: none;
-  border-color: var(--sw-accent);
-}
-
-.te-hex.is-invalid { border-color: #ff9b9b; }
-.te-hint-error { color: #ffb3b3; }
 
 /* ---------- Component list ---------- */
 .te-components {
@@ -538,12 +273,6 @@
   border-radius: 0.65rem;
   background: var(--sw-surface-raised);
   font-size: 0.84rem;
-}
-
-.te-hint {
-  margin: 0;
-  color: var(--sw-text-muted);
-  font-size: 0.76rem;
 }
 
 /* Touch screens have no hover: keep the controls visible. */

@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { ICON_KEYS, ICON_NAMES, icons, type IconKey } from "./icons";
+import { ICON_KEYS, ICON_NAMES, icons, type IconKey } from "../icons";
+import "./editing.css";
 
 function Glyph({ icon }: { icon: IconKey }) {
   return (
@@ -9,8 +10,28 @@ function Glyph({ icon }: { icon: IconKey }) {
   );
 }
 
-/** The details icon tile doubles as a button that opens a small icon grid. */
-export function IconPicker({ value, onChange, componentName }: { value: IconKey; onChange: (icon: IconKey) => void; componentName: string }) {
+export interface IconPickerProps {
+  value: IconKey;
+  onChange: (icon: IconKey) => void;
+  /** Name of the item the icon belongs to (used in the button's accessible name). */
+  componentName: string;
+  /** Icons offered in the grid (default: the whole registry). */
+  options?: readonly IconKey[];
+  /** Extra class for the trigger button (e.g. to style it as a node). */
+  buttonClassName?: string;
+  /** Show the small pencil badge on the trigger (default true). */
+  badge?: boolean;
+}
+
+/** An icon tile that doubles as a button opening a small icon grid. */
+export function IconPicker({
+  value,
+  onChange,
+  componentName,
+  options = ICON_KEYS,
+  buttonClassName = "sw-details-icon",
+  badge = true,
+}: IconPickerProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -37,7 +58,7 @@ export function IconPicker({ value, onChange, componentName }: { value: IconKey;
       <button
         ref={buttonRef}
         type="button"
-        className="sw-details-icon te-icon-button"
+        className={`${buttonClassName} te-icon-button`}
         aria-label={`Change icon for ${componentName} (current: ${ICON_NAMES[value]})`}
         aria-haspopup="true"
         aria-expanded={open}
@@ -46,15 +67,17 @@ export function IconPicker({ value, onChange, componentName }: { value: IconKey;
         onClick={() => setOpen((o) => !o)}
       >
         <Glyph icon={value} />
-        <span className="te-icon-badge" aria-hidden="true">
-          <svg viewBox="0 0 16 16">
-            <path d="M10.5 2.5 13.5 5.5 6 13H3v-3Z" />
-          </svg>
-        </span>
+        {badge && (
+          <span className="te-icon-badge" aria-hidden="true">
+            <svg viewBox="0 0 16 16">
+              <path d="M10.5 2.5 13.5 5.5 6 13H3v-3Z" />
+            </svg>
+          </span>
+        )}
       </button>
       {open && (
         <div className="te-icon-menu" id={menuId} role="group" aria-label="Choose an icon">
-          {ICON_KEYS.map((key) => (
+          {options.map((key) => (
             <button
               key={key}
               type="button"

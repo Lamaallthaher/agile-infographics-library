@@ -7,10 +7,9 @@ import {
   type WheelSegment,
   type WheelTheme,
 } from "../library/segment-wheel";
-import { EditableText } from "./EditableText";
-import { IconPicker } from "./IconPicker";
-import { ThemeColorControl, type ThemeColorControlProps } from "./ThemeColorControl";
-import { icons } from "./icons";
+import { EditableText, IconPicker, ThemeColorControl, type ThemeColorControlProps } from "../shared/editing";
+import { icons } from "../shared/icons";
+import { TOM_ICON_KEYS } from "./tom-icons";
 import { DEFAULT_LIMITS, type TomComponent, type TomLimits, type TomWheelData } from "./types";
 import { useTomWheel } from "./useTomWheel";
 import "./tom-editor.css";
@@ -288,7 +287,12 @@ export function TomWheelEditor({
           {selected && (
             <section className="sw-details te-details" aria-label="Component details">
               <header className="sw-details-head">
-                <IconPicker value={selected.icon} componentName={displayName(selected)} onChange={(icon) => update({ icon })} />
+                <IconPicker
+                  value={selected.icon}
+                  componentName={displayName(selected)}
+                  options={TOM_ICON_KEYS}
+                  onChange={(icon) => update({ icon })}
+                />
                 <div className="sw-details-heading">
                   <span className="sw-details-no">
                     {pad(selIndex + 1)} / {pad(comps.length)}

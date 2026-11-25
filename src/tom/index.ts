@@ -1,12 +1,9 @@
 export { TomWheelEditor } from "./TomWheelEditor";
 export type { TomWheelEditorProps } from "./TomWheelEditor";
 export { DEFAULT_TOM } from "./default-tom";
-export { ICON_KEYS, ICON_NAMES, icons, isIconKey } from "./icons";
-export type { IconKey } from "./icons";
+export { TOM_ICON_KEYS } from "./tom-icons";
 export { parseTomData, loadTomData, saveTomData, clearTomData } from "./storage";
 export { useTomWheel } from "./useTomWheel";
 export { useThemeColor } from "./useThemeColor";
-export { ThemeColorControl } from "./ThemeColorControl";
-export type { ThemeColorControlProps } from "./ThemeColorControl";
 export { DEFAULT_LIMITS } from "./types";
 export type { TomComponent, TomFact, TomLimits, TomWheelData } from "./types";

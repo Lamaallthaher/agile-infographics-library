@@ -1,0 +1,558 @@
+/* ==========================================================================
+   Methodology Flow editor — in-place editing on top of the renderer styles.
+   Colours: --mfe-* / --ed-* variables derived from the active theme.
+   ========================================================================== */
+
+.mfe {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  border-radius: 1.4rem;
+  background: var(--mfe-bg);
+  color: var(--mfe-text);
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* The infographic sits on the same background as the editor frame. */
+.mfe > .mf {
+  padding: clamp(0.5rem, 1.5vw, 1rem);
+}
+
+.mfe-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- Toolbar ---------- */
+.mfe-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.4rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--ed-border);
+  border-radius: 0.9rem;
+  background: var(--mfe-panel);
+}
+
+.mfe-toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+}
+
+.mfe-toolbar-end {
+  margin-left: auto;
+}
+
+.mfe-count {
+  color: var(--mfe-muted);
+  font-size: 0.84rem;
+}
+
+.mfe-count strong {
+  color: var(--mfe-heading);
+  font-size: 0.95rem;
+}
+
+.mfe-btn,
+.mfe-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px dashed var(--ed-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mfe-kicker);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mfe-btn:hover:not(:disabled),
+.mfe-add:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--mfe-accent);
+}
+
+.mfe-btn:disabled,
+.mfe-add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mfe-btn:focus-visible,
+.mfe-add:focus-visible {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 2px;
+}
+
+.mfe-add {
+  justify-content: center;
+  width: 100%;
+  max-width: 26rem;
+  border-radius: 0.65rem;
+}
+
+.mfe svg {
+  flex: none;
+}
+
+.mfe-btn svg,
+.mfe-add svg,
+.mfe-tools svg,
+.mfe-saved svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mfe-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--mfe-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.mfe-saved.is-error { color: #ffb36b; }
+
+.mfe-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--ed-border);
+  border-radius: 0.65rem;
+  background: var(--mfe-panel);
+  font-size: 0.86rem;
+}
+
+/* ---------- Inline fields inside the infographic ---------- */
+/* Empty optional fields only appear while the item is hovered or being edited. */
+.mf-step-text:not(:hover):not(:focus-within) .is-empty,
+.mf-result:not(:hover):not(:focus-within) .is-empty,
+.mf-legend-row:not(:hover):not(:focus-within):not(.is-selected) .is-empty {
+  display: none;
+}
+
+.mf.is-editable .mf-kicker {
+  flex-wrap: nowrap;
+}
+
+.mf.is-editable .mf-kicker .te-field {
+  width: auto;
+  min-width: 4rem;
+  flex: 1;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+}
+
+/* Centred steps: the kicker field hugs its text so "01 · LABEL" stays together. */
+.mf.is-editable[data-align="center"] .mf-body:not([data-mode="vertical"]) .mf-kicker .te-field {
+  flex: 0 1 auto;
+  width: auto;
+  min-width: 3ch;
+  field-sizing: content;
+}
+
+.mf.is-editable .mf-bullets li .te-field {
+  width: calc(100% + 0.7rem);
+}
+
+.mf.is-editable .mf-wheel-center .te-field {
+  margin: 0;
+  width: 100%;
+  padding: 0.1rem 0.2rem;
+  text-align: center;
+}
+
+/* The automatic centre value (dimension count) is shown as the placeholder: make it look real. */
+.ed-scope .mf-wheel-value.te-field::placeholder {
+  color: var(--mf-center-text);
+  font-style: normal;
+  opacity: 1;
+}
+
+.mf.is-editable .mf-wheel-label {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.mf.is-editable .mf-title {
+  width: min(100%, 48rem);
+}
+
+/* Step nodes become icon-picker buttons. */
+.mfe-node-button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+
+.mfe-node-button > svg {
+  width: 46%;
+  height: 46%;
+}
+
+.mf-node-core .te-icon-picker {
+  width: 100%;
+  height: 100%;
+}
+
+.mf-node-core .te-icon-badge {
+  right: -0.15rem;
+  bottom: -0.15rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mf-step-node:hover .te-icon-badge,
+.mf-step-node:focus-within .te-icon-badge {
+  opacity: 1;
+}
+
+/* Icon menus: centred under step nodes, left-aligned elsewhere; never wider than the screen. */
+.mf .te-icon-menu {
+  max-width: calc(100vw - 2rem);
+  grid-template-columns: repeat(6, 2.4rem);
+}
+
+.mf-body:not([data-mode="vertical"]) .mf-step-node .te-icon-menu {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.mfe-badge-wrap {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+}
+
+.mfe-badge-button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+
+.mfe-badge-button > svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* ---------- Item tools (steps + dimensions) ---------- */
+.mfe-tools {
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.mfe-step-tools {
+  position: absolute;
+  right: 0;
+  z-index: 3;
+}
+
+.mf-step-text[data-side="top"] .mfe-step-tools,
+.mf-step-text[data-side="side"] .mfe-step-tools {
+  top: -1.9rem;
+}
+
+.mf-step-text[data-side="bottom"] .mfe-step-tools {
+  bottom: -1.9rem;
+}
+
+.mf-step-text:hover .mfe-tools,
+.mf-step-text:focus-within .mfe-tools,
+.mf-legend-row:hover .mfe-tools,
+.mf-legend-row:focus-within .mfe-tools,
+.mf-legend-row.is-selected .mfe-tools {
+  opacity: 1;
+}
+
+.mfe-tools button,
+.mfe-color {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 1px solid var(--ed-border);
+  border-radius: 0.45rem;
+  background: var(--mfe-panel);
+  color: var(--mfe-muted);
+  cursor: pointer;
+}
+
+.mfe-tools button:hover:not(:disabled) {
+  border-color: var(--mfe-accent);
+  color: var(--mfe-text);
+}
+
+.mfe-tools button.is-danger:hover:not(:disabled) {
+  border-color: #ff9b9b;
+  color: #ff9b9b;
+}
+
+.mfe-tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.mfe-tools button:focus-visible,
+.mfe-color:focus-within {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 1px;
+}
+
+.mfe-color-swatch {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.mfe-color input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Dimension tools: their own line under the label, opened on hover/focus/selection,
+   so they never squeeze the label. */
+.mf-legend-row .mfe-dim-tools {
+  grid-column: 2 / -1;
+  max-height: 0;
+  overflow: hidden;
+  transition: opacity 0.15s ease, max-height 0.15s ease;
+}
+
+.mf-legend-row:hover .mfe-dim-tools,
+.mf-legend-row:focus-within .mfe-dim-tools,
+.mf-legend-row.is-selected .mfe-dim-tools {
+  max-height: 2.4rem;
+  overflow: visible;
+}
+
+.mfe-add-point {
+  margin-top: 0.15rem;
+  opacity: 0;
+}
+
+.mf-step-text:hover .mfe-add-point,
+.mf-step-text:focus-within .mfe-add-point,
+.mfe-add-point:focus-visible {
+  opacity: 0.85;
+}
+
+/* ---------- Appearance panel ---------- */
+.mfe-appearance {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--ed-border);
+  border-radius: 1rem;
+  background: var(--mfe-panel);
+}
+
+.mfe-appearance-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mfe-appearance h3 {
+  margin: 0;
+  color: var(--mfe-heading);
+  font-size: 1rem;
+}
+
+.mfe-appearance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.9rem 1.4rem;
+}
+
+.mfe-field {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.mfe-field-wide {
+  grid-column: 1 / -1;
+}
+
+.mfe-field-label {
+  color: var(--mfe-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.mfe-field .te-theme {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mfe-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.mfe-preset,
+.mfe-segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--ed-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mfe-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.mfe-preset[aria-pressed="true"],
+.mfe-segmented button[aria-pressed="true"] {
+  border-color: var(--mfe-accent);
+  box-shadow: inset 0 0 0 1px var(--mfe-accent);
+  color: var(--mfe-heading);
+}
+
+.mfe-preset:focus-visible,
+.mfe-segmented button:focus-visible,
+.mfe-advanced summary:focus-visible {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 2px;
+}
+
+.mfe-preset-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+
+.mfe-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.mfe-advanced summary {
+  color: var(--mfe-heading);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mfe-badge {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid var(--mfe-accent);
+  border-radius: 999px;
+  color: var(--mfe-kicker);
+  font-size: 0.7rem;
+}
+
+.mfe-overrides {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.45rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.mfe-override {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.84rem;
+}
+
+.mfe-override-name {
+  flex: 1;
+}
+
+.mfe-override.is-custom .mfe-override-name {
+  color: var(--mfe-heading);
+  font-weight: 700;
+}
+
+.mfe-auto {
+  color: var(--mfe-muted);
+  font-size: 0.74rem;
+}
+
+.mfe-contrast {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.6rem;
+  background: var(--mfe-bg);
+  color: var(--mfe-text);
+  font-size: 0.82rem;
+}
+
+.mfe-contrast.has-warnings {
+  box-shadow: inset 3px 0 0 #ffb36b;
+}
+
+.mfe-contrast ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
+@media (hover: none) {
+  .mf-legend-row .mfe-dim-tools {
+    max-height: none;
+  }
+
+  .mfe-tools,
+  .mfe-add-point,
+  .mf-node-core .te-icon-badge {
+    opacity: 1;
+  }
+}

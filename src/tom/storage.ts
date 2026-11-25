@@ -1,4 +1,4 @@
-import { isIconKey } from "./icons";
+import { isIconKey } from "../shared/icons";
 import { DEFAULT_LIMITS, type TomComponent, type TomFact, type TomLimits, type TomWheelData } from "./types";
 
 /**

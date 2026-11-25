@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, type KeyboardEvent, type Ref } from "react";
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type Ref } from "react";
+import "./editing.css";
 
 export interface EditableTextProps {
   value: string;
@@ -48,6 +49,29 @@ export function EditableText({
     el.style.height = "auto";
     el.style.height = `${el.scrollHeight}px`;
   });
+
+  // Re-fit when the field's width changes without a re-render (responsive layouts).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    let lastWidth = el.clientWidth;
+    let frame = 0;
+    const ro = new ResizeObserver(() => {
+      if (el.clientWidth === lastWidth) return;
+      lastWidth = el.clientWidth;
+      // Adjust on the next frame so the height change does not re-trigger this observer in the same frame.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        el.style.height = "auto";
+        el.style.height = `${el.scrollHeight}px`;
+      });
+    });
+    ro.observe(el);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro.disconnect();
+    };
+  }, []);
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !multiline) {

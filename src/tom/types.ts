@@ -1,4 +1,4 @@
-import type { IconKey } from "./icons";
+import type { IconKey } from "../shared/icons";
 
 /**
  * Plain, JSON-serialisable TOM data. This is what users edit and what is saved

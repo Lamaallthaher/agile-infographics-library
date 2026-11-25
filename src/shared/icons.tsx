@@ -108,6 +108,94 @@ export const icons = {
       <path d="m7.5 8 1.5 1.5 2.5-2.5M7.5 14l1.5 1.5 2.5-2.5M14 8.5h3M14 14.5h3" />
     </>
   ),
+  book: (
+    <>
+      <path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5Z" />
+      <path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3M9 7h6" />
+    </>
+  ),
+  clipboardCheck: (
+    <>
+      <rect x="5" y="4" width="14" height="17" rx="2" />
+      <path d="M9 4V3h6v1M9 4a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1" />
+      <path d="m8.8 13 2.2 2.2 4.2-4.5" />
+    </>
+  ),
+  link: (
+    <>
+      <path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1.2 1.2" />
+      <path d="M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1.2-1.2" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="m15 15 5 5" />
+    </>
+  ),
+  document: (
+    <>
+      <path d="M6 3h8l4 4v14H6Z" />
+      <path d="M14 3v4h4M9 12h6M9 16h6" />
+    </>
+  ),
+  puzzle: (
+    <path d="M9 4h3.5a1.75 1.75 0 1 1 3.5 0H19v4.5a1.75 1.75 0 1 0 0 3.5V16h-3.5a1.75 1.75 0 1 0-3.5 0H9v-3.5a1.75 1.75 0 1 1 0-3.5Z" />
+  ),
+  rocket: (
+    <>
+      <path d="M12 3c3.5 2 5 5.5 5 9.5l-2.5 3.5h-5L7 12.5C7 8.5 8.5 5 12 3Z" />
+      <circle cx="12" cy="10" r="1.6" />
+      <path d="M9.5 16 7 20l3-1.2M14.5 16 17 20l-3-1.2M7 12.5 4.5 15l2.5.5M17 12.5l2.5 2.5-2.5.5" />
+    </>
+  ),
+  award: (
+    <>
+      <circle cx="12" cy="9" r="5.5" />
+      <path d="m9 13.8-1.5 7 4.5-2.3 4.5 2.3-1.5-7" />
+    </>
+  ),
+  calendar: (
+    <>
+      <rect x="4" y="5" width="16" height="15" rx="2" />
+      <path d="M4 10h16M8.5 3v4M15.5 3v4M8 14h2M14 14h2" />
+    </>
+  ),
+  server: (
+    <>
+      <rect x="4" y="4" width="16" height="7" rx="1.5" />
+      <rect x="4" y="13" width="16" height="7" rx="1.5" />
+      <path d="M7.5 7.5h.01M7.5 16.5h.01M11 7.5h5M11 16.5h5" />
+    </>
+  ),
+  cloud: <path d="M7 18.5h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 9.5 4.5 4.5 0 0 0 7 18.5Z" />,
+  eye: (
+    <>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  checkCircle: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8 12.3 2.8 2.7L16.2 9.5" />
+    </>
+  ),
+  barChart: <path d="M4 20h16M7 20v-6M12 20V6M17 20v-9" />,
+  gauge: (
+    <>
+      <path d="M3.5 17a9 9 0 1 1 17 0" />
+      <path d="m12 14 4-5" />
+      <circle cx="12" cy="14" r="1.4" />
+    </>
+  ),
+  route: (
+    <>
+      <circle cx="6" cy="18" r="2.2" />
+      <circle cx="18" cy="6" r="2.2" />
+      <path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8" />
+    </>
+  ),
   /** Hub illustration: a monitor showing a small operating-model dashboard. */
   tomMonitor: (
     <>
@@ -142,6 +230,22 @@ export const ICON_NAMES: Record<IconKey, string> = {
   coins: "Finance",
   checklist: "Standards",
   tomMonitor: "Dashboard",
+  book: "Reference",
+  clipboardCheck: "Requirements",
+  link: "Connect",
+  search: "Research",
+  document: "Document",
+  puzzle: "Integration",
+  rocket: "Launch",
+  award: "Excellence",
+  calendar: "Schedule",
+  server: "Infrastructure",
+  cloud: "Cloud",
+  eye: "Oversight",
+  checkCircle: "Compliance",
+  barChart: "Metrics",
+  gauge: "Maturity",
+  route: "Journey",
 };
 
 export const ICON_KEYS = Object.keys(icons) as IconKey[];
