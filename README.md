@@ -1,14 +1,15 @@
 # Agile Infographics Library
 
-One library of **reusable, editable, data-driven infographic components**, built
-with React, TypeScript and plain CSS. Each component is independent: it takes
-its content and theme as data, so it can be reused for any project without
-changing its source code.
+One repository of **reusable, editable, data-driven infographic components**,
+built with React, TypeScript and plain CSS. Each component is its **own npm
+package**: a client project installs only the component it needs, and never
+bundles the others or the development gallery.
 
-| # | Component | What it shows |
-|---|---|---|
-| 01 | **TOM Wheel** | A circular Target Operating Model wheel with any number of components (3–12), a details panel and a component list. |
-| 02 | **Methodology Flow & Assessment Wheel** | A connected sequence of methodology steps (2–8) leading to a circular set of assessment dimensions (3–12). |
+| # | Component | Package | What it shows |
+|---|---|---|---|
+| 01 | **TOM Wheel** | [`@agile-infographics/tom-wheel`](packages/tom-wheel/README.md) | A circular Target Operating Model wheel with any number of components (3–12), a details panel and a component list. |
+| 02 | **Methodology Flow & Assessment Wheel** | [`@agile-infographics/methodology-flow`](packages/methodology-flow/README.md) | A connected sequence of methodology steps (2–8) leading to a circular set of assessment dimensions (3–12). |
+| — | Shared building blocks | [`@agile-infographics/core`](packages/core/README.md) | Theme generator, contrast helpers, icon registry, inline-editing primitives, storage helpers. Installed automatically with any component. |
 
 Every component shares the same principles:
 
@@ -21,8 +22,9 @@ Every component shares the same principles:
 - **Local persistence:** changes are saved in the browser under versioned keys,
   validated on load, and fall back to defaults when data is invalid.
 
-> Status: **prototype for review.** It is not yet packaged or published to npm.
-> All example content is generic and fictional.
+> Status: **prototype for review.** The packages build and install
+> independently, but are not yet published to a registry (see
+> [Distribution](#distribution)). All example content is generic and fictional.
 
 ---
 
@@ -42,40 +44,104 @@ npm run dev      # → http://localhost:5173
 
 | Command | What it does |
 |---|---|
-| `npm run dev` | Development server with hot reload |
-| `npm run typecheck` | TypeScript check, no output files |
-| `npm run build` | Type-check + production build into `dist/` |
-| `npm run preview` | Serve the production build (http://localhost:4173) |
+| `npm run dev` | Gallery development server with hot reload. Edits in any package reload instantly; no package build needed. |
+| `npm run typecheck` | TypeScript check of every package and the gallery |
+| `npm run build:packages` | Build each package into its own `packages/<name>/dist/` (JS, `style.css`, type declarations) |
+| `npm run build` | Type-check, build every package, then build the gallery into `apps/gallery/dist/` |
+| `npm run preview` | Serve the gallery's production build (http://localhost:4173) |
+| `npm run build -w @agile-infographics/methodology-flow` | Build one package only (build `core` first) |
 
 ---
 
 ## Project structure
 
+An npm workspaces monorepo: one repository, one dev server, separately buildable packages.
+
 ```text
-src/
-├── main.tsx, App.tsx                # entry → gallery with a component switcher
-├── library/                         # RENDERING + THEMING — reusable, no example content
-│   ├── theme-generator/             # one colour → full readable palette (shared by all components)
-│   │   ├── color.ts                 # HEX ⇄ OKLCH, gamut mapping, WCAG contrast
-│   │   ├── generatePalette.ts       # semantic palette + approved default palette
-│   │   ├── ramp.ts                  # colour ramps, readable foregrounds
-│   │   └── presets.ts               # ready-made base colours
-│   ├── segment-wheel/               # renderer of component 01 (SVG wheel, geometry, theme mapping)
-│   └── methodology-flow/            # renderer of component 02
-│       ├── layout.ts                # pure layout engine (flow grid modes, wheel geometry)
-│       ├── theme.ts                 # palette → --mf-* theme, overrides, contrast checks
-│       ├── MethodologyFlow.tsx      # renderer with optional editing "slots"
-│       └── methodology-flow.css
-├── shared/                          # EDITING BUILDING BLOCKS shared by all editors
-│   ├── icons.tsx                    # icon registry (data stores icon keys)
-│   └── editing/                     # EditableText, IconPicker, ThemeColorControl, editing.css
-├── tom/                             # component 01: data model, defaults, storage, editor
-├── methodology/                     # component 02: data model, defaults, storage, editor, appearance panel
-└── gallery/                         # demo page shell + component switcher
+agile-infographics-library/
+├── package.json                     # private root: workspaces + scripts (never published)
+├── tsconfig.base.json, tsconfig.json
+├── vite.lib.ts                      # shared library-build config used by every package
+├── scripts/strip-css-imports.mjs    # build helper for type declarations
+├── packages/
+│   ├── core/                        # @agile-infographics/core: generic, knows no component
+│   │   └── src/
+│   │       ├── theme/               # one colour → readable palette, OKLCH, contrast, ramps, presets
+│   │       ├── icons.tsx            # icon registry (data stores icon keys)
+│   │       ├── editing/             # EditableText, IconPicker, ThemeColorControl, editing.css
+│   │       ├── storage.ts           # safe Local Storage helpers
+│   │       └── useThemeColor.ts     # persisted theme colour + generated palette
+│   ├── tom-wheel/                   # @agile-infographics/tom-wheel: component 01
+│   │   └── src/
+│   │       ├── renderer/            # SVG segment wheel, geometry, theme mapping (read-only)
+│   │       ├── editor/              # data model, defaults, storage, state hook, TomWheelEditor
+│   │       └── index.ts             # public entry
+│   └── methodology-flow/            # @agile-infographics/methodology-flow: component 02
+│       └── src/
+│           ├── renderer/            # layout engine, theme mapping, MethodologyFlow (read-only)
+│           ├── editor/              # data model, defaults, storage, hooks, editor, appearance panel
+│           └── index.ts             # public entry
+└── apps/
+    └── gallery/                     # private development gallery (never published)
 ```
 
-Dependencies point one way: `gallery → tom | methodology → shared → library`.
-The renderers in `library/` never import example content or editing code.
+**Dependency rules**
+
+- A component package depends only on `@agile-infographics/core` (and on React
+  as a peer dependency), never on another component.
+- `core` depends on nothing in the library and contains no component names,
+  classes or CSS variables.
+- Only the gallery depends on every package.
+- Inside a component, `renderer/` never imports `editor/`.
+
+Each package exposes only these entry points (`exports` in its `package.json`):
+
+| Import path | Contents |
+|---|---|
+| `@agile-infographics/<component>` | Editor, renderer, data model, defaults and storage helpers |
+| `@agile-infographics/<component>/renderer` | Read-only renderer only; no editor code is bundled |
+| `@agile-infographics/<component>/style.css` | The package's CSS. It loads automatically; an explicit import is optional. |
+
+---
+
+## Using a component in a client project
+
+A client installs **only** the component it needs. `core` comes with it
+automatically; the other components and the gallery are never installed.
+
+```bash
+npm install @agile-infographics/methodology-flow     # or @agile-infographics/tom-wheel
+```
+
+```tsx
+import { MethodologyFlowEditor, DEFAULT_METHODOLOGY } from "@agile-infographics/methodology-flow";
+
+<MethodologyFlowEditor defaultData={DEFAULT_METHODOLOGY} storageKey="client-x.methodology" />
+```
+
+- Requirements: React 19 and a bundler that handles CSS imports (Vite, webpack,
+  Next.js and so on). Styles load automatically with the component.
+- Each package's README documents its full API:
+  [tom-wheel](packages/tom-wheel/README.md),
+  [methodology-flow](packages/methodology-flow/README.md),
+  [core](packages/core/README.md).
+
+### Distribution
+
+The packages are not on a registry yet. Until a channel is chosen, a client can
+install a packed build:
+
+```bash
+npm run build:packages
+npm pack -w @agile-infographics/core -w @agile-infographics/methodology-flow   # → *.tgz files
+# in the client project:
+npm install ./agile-infographics-core-0.1.0.tgz ./agile-infographics-methodology-flow-0.1.0.tgz
+```
+
+Options for later: GitHub Packages (a private npm registry tied to this
+repository), tarballs attached to GitHub Releases, or public npm. A plain
+`npm install github:…` does not work, because npm cannot install one folder of
+a repository.
 
 ---
 
@@ -165,7 +231,7 @@ circular assessment wheel, plus a legend of the dimensions.
 
 ### Layout engine
 
-`library/methodology-flow/layout.ts` is pure. It takes the measured width, the
+`packages/methodology-flow/src/renderer/layout.ts` is pure. It takes the measured width, the
 number of steps and the typography, and picks a mode:
 
 | Mode | When | Layout |
@@ -236,7 +302,7 @@ infographic is read-only.
 
 ## Smart theme customisation (shared)
 
-`src/library/theme-generator/` turns one base colour into a complete, semantic
+`packages/core/src/theme/` turns one base colour into a complete, semantic
 palette that any component can map onto its own CSS variables.
 
 1. **Analyse the colour.** The base colour is converted to OKLCH, a
@@ -274,30 +340,43 @@ palette that any component can map onto its own CSS variables.
 
 ## Adding another component to the library
 
-1. **Renderer.** Create `src/library/<component>/`:
+1. **Package.** Create `packages/<component>/` with the same shape as an
+   existing component:
+   - `package.json`: name `@agile-infographics/<component>`; the same
+     `exports`, `sideEffects` and `peerDependencies`; a dependency on
+     `@agile-infographics/core` only
+   - `vite.config.ts` (`libraryConfig` from `vite.lib.ts`),
+     `tsconfig.build.json` and `README.md`
+   - add it to `workspaces` and `build:packages` in the root `package.json`
+2. **Renderer** (`src/renderer/`):
    - a pure layout or geometry module
    - a renderer that takes the content as props (with optional slots for
      editing)
    - a `theme.ts` with a `paletteTo<Component>Theme(palette, overrides?)`
      adapter
-   - CSS that reads only its own CSS variables
-2. **Editor.** Create `src/<component>/`:
+   - CSS that reads only its own CSS variables, imported by the component file
+     that needs it (not by an `index.ts`)
+3. **Editor** (`src/editor/`):
    - a plain-JSON data model with a `version` field and a generic default
      example
-   - `parse…` validation and Local Storage load/save under versioned keys
+   - `parse…` validation, with core's `loadJson` / `saveJson` under
+     versioned keys
    - a state hook with validated actions
-   - an editor built from `shared/editing` (EditableText, IconPicker,
-     ThemeColorControl) and `shared/icons`
-3. **Gallery.** Register the component in `COMPONENTS` in
-   `src/gallery/Gallery.tsx` and add its page. It gets its own
-   `#/<slug>` URL.
-4. **Theme.** Reuse `generatePalette`, `colorRamp`, `readableOn`,
-   `ensureReadable` and `THEME_PRESETS`. Don't hardcode colours in the
-   component.
+   - an editor built from core's `EditableText`, `IconPicker`,
+     `ThemeColorControl` and `icons`. Its root gets the class `ed-scope` and
+     sets the `--ed-*` colour variables.
+4. **Entry points.** `src/index.ts` re-exports `./editor` and `./renderer`.
+5. **Gallery.**
+   - add the package to `apps/gallery/package.json`
+   - register it in `COMPONENTS` in `apps/gallery/src/Gallery.tsx` and add
+     its page; it gets its own `#/<slug>` URL
+6. **Theme.** Reuse `generatePalette`, `colorRamp`, `readableOn`,
+   `ensureReadable` and `THEME_PRESETS` from core. Don't hardcode colours in
+   the component, and never import another component.
 
 ---
 
-## Known limitations (prototype v0.6)
+## Known limitations (prototype v0.7)
 
 - Data lives only in the browser where it was edited. There is no sharing
   between people or devices, and no import or export yet.
@@ -315,5 +394,5 @@ palette that any component can map onto its own CSS variables.
   Appearance panel, not blocked.
 - No automated test suite is committed yet. The prototype was verified with
   scripted browser checks during development.
-- Not yet packaged as an npm library; components are consumed by copying the
-  folders.
+- The packages build and install, but are not yet published to a registry and
+  have no licence field yet.

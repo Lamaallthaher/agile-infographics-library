@@ -1,0 +1,19 @@
+{
+  "name": "@agile-infographics/gallery",
+  "private": true,
+  "version": "0.7.0",
+  "description": "Development gallery for the Agile Infographics Library. Never published.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@agile-infographics/core": "^0.1.0",
+    "@agile-infographics/methodology-flow": "^0.1.0",
+    "@agile-infographics/tom-wheel": "^0.1.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  }
+}

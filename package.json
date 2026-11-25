@@ -1,24 +1,30 @@
 {
   "name": "agile-infographics-library",
   "private": true,
-  "version": "0.6.0",
-  "description": "Agile Infographics Library prototype: an editable, data-driven Target Operating Model (TOM) wheel built with React and TypeScript.",
+  "version": "0.7.0",
+  "description": "Agile Infographics Library: independent, editable React infographic components (one package per component) plus a development gallery.",
   "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/tom-wheel",
+    "packages/methodology-flow",
+    "apps/gallery"
+  ],
   "scripts": {
-    "dev": "vite",
-    "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "dev": "npm run dev -w @agile-infographics/gallery",
+    "typecheck": "tsc -p tsconfig.json",
+    "build:packages": "npm run build -w @agile-infographics/core && npm run build -w @agile-infographics/tom-wheel && npm run build -w @agile-infographics/methodology-flow",
+    "build:gallery": "npm run build -w @agile-infographics/gallery",
+    "build": "npm run typecheck && npm run build:packages && npm run build:gallery",
+    "preview": "npm run preview -w @agile-infographics/gallery"
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
     "typescript": "^7.0.2",
-    "vite": "^8.3.8"
+    "vite": "^8.3.8",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }
