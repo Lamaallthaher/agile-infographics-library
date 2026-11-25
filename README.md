@@ -9,7 +9,7 @@ bundles the others or the development gallery.
 |---|---|---|---|
 | 01 | **TOM Wheel** | [`@agile-infographics/tom-wheel`](packages/tom-wheel/README.md) | A circular Target Operating Model wheel with any number of components (3–12), a details panel and a component list. |
 | 02 | **Methodology Flow & Assessment Wheel** | [`@agile-infographics/methodology-flow`](packages/methodology-flow/README.md) | A connected sequence of methodology steps (2–8) leading to a circular set of assessment dimensions (3–12). |
-| — | Shared building blocks | [`@agile-infographics/core`](packages/core/README.md) | Theme generator, contrast helpers, icon registry, inline-editing primitives, storage helpers. Installed automatically with any component. |
+| — | Shared building blocks | [`@agile-infographics/core`](packages/core/README.md) | Theme generator, contrast helpers, icon registry, inline-editing primitives, storage helpers. Installed automatically with any component, which re-exports what clients need. |
 
 Every component shares the same principles:
 
@@ -49,6 +49,8 @@ npm run dev      # → http://localhost:5173
 | `npm run build:packages` | Build each package into its own `packages/<name>/dist/` (JS, `style.css`, type declarations) |
 | `npm run build` | Type-check, build every package, then build the gallery into `apps/gallery/dist/` |
 | `npm run preview` | Serve the gallery's production build (http://localhost:4173) |
+| `npm test` | Build the gallery, then run all browser test suites (needs Edge, Chrome or Chromium; see [tests/browser](tests/browser/README.md)) |
+| `npm run test:browser` | Run the browser test suites against the existing gallery build |
 | `npm run build -w @agile-infographics/methodology-flow` | Build one package only (build `core` first) |
 
 ---
@@ -63,6 +65,7 @@ agile-infographics-library/
 ├── tsconfig.base.json, tsconfig.json
 ├── vite.lib.ts                      # shared library-build config used by every package
 ├── scripts/strip-css-imports.mjs    # build helper for type declarations
+├── tests/browser/                   # end-to-end browser suites + runner (npm test)
 ├── packages/
 │   ├── core/                        # @agile-infographics/core: generic, knows no component
 │   │   └── src/
@@ -110,7 +113,8 @@ A client installs **only** the component it needs. `core` comes with it
 automatically; the other components and the gallery are never installed.
 
 ```bash
-npm install @agile-infographics/methodology-flow     # or @agile-infographics/tom-wheel
+npm install @agile-infographics/methodology-flow     # npm  (or @agile-infographics/tom-wheel)
+pnpm add @agile-infographics/methodology-flow        # pnpm
 ```
 
 ```tsx
@@ -118,6 +122,13 @@ import { MethodologyFlowEditor, DEFAULT_METHODOLOGY } from "@agile-infographics/
 
 <MethodologyFlowEditor defaultData={DEFAULT_METHODOLOGY} storageKey="client-x.methodology" />
 ```
+
+- **Import only from the component package you installed.** Each component
+  re-exports the core utilities its clients need (`generatePalette`,
+  `THEME_PRESETS`, `DEFAULT_PRIMARY`, `ICON_KEYS`, `isIconKey` and their
+  types). Don't import `@agile-infographics/core` unless you add it to your own
+  dependencies: pnpm and Yarn PnP don't let a project reach a dependency of a
+  dependency.
 
 - Requirements: React 19 and a bundler that handles CSS imports (Vite, webpack,
   Next.js and so on). Styles load automatically with the component.
@@ -373,6 +384,13 @@ palette that any component can map onto its own CSS variables.
 6. **Theme.** Reuse `generatePalette`, `colorRamp`, `readableOn`,
    `ensureReadable` and `THEME_PRESETS` from core. Don't hardcode colours in
    the component, and never import another component.
+7. **Client exports.** Re-export from `src/renderer/index.ts` the core
+   utilities a client needs for this component (at least `generatePalette`,
+   `THEME_PRESETS`, `DEFAULT_PRIMARY`, `ICON_KEYS`, `isIconKey` and their
+   types), so clients never import core directly.
+8. **Tests.** Add `tests/browser/suites/<component>.html` (see
+   [tests/browser](tests/browser/README.md)); `npm test` picks it up
+   automatically.
 
 ---
 
@@ -392,7 +410,7 @@ palette that any component can map onto its own CSS variables.
   - Very long centre labels are clamped to 3 lines in read-only mode.
 - Some manual colour overrides can reduce contrast. They are flagged in the
   Appearance panel, not blocked.
-- No automated test suite is committed yet. The prototype was verified with
-  scripted browser checks during development.
+- The browser test suites (`npm test`) run locally and need an installed
+  Chromium-based browser. They don't run automatically on GitHub yet.
 - The packages build and install, but are not yet published to a registry and
   have no licence field yet.

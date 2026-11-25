@@ -1,0 +1,237 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<iframe id="f" style="border:0;width:1300px;height:120px"></iframe>
+<pre id="out" style="font:13px monospace;white-space:pre-wrap">waiting</pre>
+<script>
+const KEY = 'agile-infographics.tom-wheel.v1';
+const f = document.getElementById('f'); const R = []; const errors = []; const notes = [];
+const ok = (n, c, extra = '') => R.push((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : '  ' + extra));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let d, w;
+
+function load() {
+  return new Promise(res => {
+    f.onload = async () => {
+      d = f.contentDocument; w = f.contentWindow;
+      w.addEventListener('error', e => errors.push(String(e.message)));
+      const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
+      for (let i = 0; i < 50 && !d.querySelector('.sw-seg'); i++) await wait(100);
+      const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
+      await wait(100); res();
+    };
+    f.src = '/index.html?' + Math.random();
+  });
+}
+
+const segs = () => [...d.querySelectorAll('.sw-seg')];
+const rows = () => [...d.querySelectorAll('.sw-list-row')];
+const rowNames = () => rows().map(r => r.querySelector('.sw-list-name').textContent);
+const title = () => d.querySelector('.te-name').value;
+const wheelLabel = i => [...segs()[i].querySelectorAll('.sw-label tspan')].map(t => t.textContent).join(' ');
+const hubText = () => [...d.querySelectorAll('.sw-center-title tspan')].map(t => t.textContent).join('|');
+function type(el, text) {
+  el.focus();
+  Object.getOwnPropertyDescriptor(w.HTMLTextAreaElement.prototype, 'value').set.call(el, text);
+  el.dispatchEvent(new w.Event('input', { bubbles: true }));
+}
+const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const key = (el, k, opts = {}) => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, ...opts }));
+const stored = () => JSON.parse(w.localStorage.getItem(KEY));
+
+/** Geometry/visual-fit checks for the wheel as currently rendered. */
+function geometry(tag) {
+  const n = segs().length;
+  const hubR = +d.querySelector('.sw-hub').getAttribute('r'); const segR = 242;
+  const span = 360 / n; const bad = [];
+  ok(`[${tag}] ${n} segments, ${n} separators, ${n} list rows`, d.querySelectorAll('.sw-separators path').length === n && rows().length === n);
+  const p0 = segs()[0].querySelector('.sw-slice').getAttribute('d');
+  ok(`[${tag}] first segment starts at 12 o'clock`, /^M0 -242/.test(p0));
+  // Equal spans: every slice path ends where the next starts.
+  const angles = segs().map(s => { const m = s.querySelector('.sw-slice').getAttribute('d').match(/^M(-?[\d.]+) (-?[\d.]+)/); return (Math.atan2(+m[1], -m[2]) * 180 / Math.PI + 360) % 360; });
+  ok(`[${tag}] segments evenly distributed`, angles.every((a, i) => Math.abs(((a - i * span) + 540) % 360 - 180) < 0.05), JSON.stringify(angles));
+  let fonts = new Set(); const boxes = [];
+  segs().forEach((s, i) => {
+    const p = s.querySelector('.sw-slice'); const lab = s.querySelector('.sw-label'); const ic = s.querySelector('.sw-icon');
+    fonts.add(lab.getAttribute('font-size'));
+    const ix = +ic.getAttribute('x') + +ic.getAttribute('width') / 2; const lx = +lab.querySelector('tspan').getAttribute('x');
+    if (Math.abs(ix - lx) > 0.5) bad.push(`${i}: icon not centred over label`);
+    for (const el of [lab, ic]) {
+      let x, y, wd, ht;
+      if (el.tagName === 'svg') { x = +el.getAttribute('x'); y = +el.getAttribute('y'); wd = +el.getAttribute('width'); ht = +el.getAttribute('height'); }
+      else { const b = el.getBBox(); x = b.x; y = b.y; wd = b.width; ht = b.height; boxes.push({ i, x, y, wd, ht }); }
+      for (const [px, py] of [[x, y], [x + wd, y], [x, y + ht], [x + wd, y + ht]]) {
+        const r = Math.hypot(px, py); const th = (Math.atan2(px, -py) * 180 / Math.PI + 360) % 360;
+        const sep = Math.min(...[i * span, (i + 1) * span].map(a => r * Math.abs(Math.sin((th - a) * Math.PI / 180))));
+        if (!p.isPointInFill(new w.DOMPoint(px, py)) || r < hubR + 2 || r > segR - 2 || sep < 4.5) {
+          bad.push(`${i} "${wheelLabel(i)}" ${el.getAttribute('class')} r=${r.toFixed(1)} sep=${sep.toFixed(1)}`); break;
+        }
+      }
+    }
+  });
+  // Labels must not overlap each other.
+  for (const a of boxes) for (const b of boxes) if (a.i < b.i && a.x < b.x + b.wd && b.x < a.x + a.wd && a.y < b.y + b.ht && b.y < a.y + a.ht) bad.push(`overlap ${a.i}/${b.i}`);
+  ok(`[${tag}] labels + icons inside own segment, centred, no overlaps, clear of hub/separators/ring`, bad.length === 0, JSON.stringify(bad));
+  ok(`[${tag}] one shared label font size`, fonts.size === 1, [...fonts].join());
+  const hb = d.querySelector('.sw-center-title').getBBox();
+  ok(`[${tag}] hub title inside hub`, [[hb.x, hb.y], [hb.x + hb.width, hb.y], [hb.x, hb.y + hb.height], [hb.x + hb.width, hb.y + hb.height]].every(([x, y]) => Math.hypot(x, y) < hubR - 3), JSON.stringify(hb));
+  notes.push(`${tag}: n=${n} label font=${[...fonts][0]} lines=${segs().map((_, i) => wheelLabel(i)).join(' / ')}`);
+}
+
+async function syncChecks(tag) {
+  const n = segs().length; let okc = true;
+  for (let i = 0; i < n; i++) {
+    click(segs()[i]); await wait(20);
+    if (title() !== rowNames()[i] || !rows()[i].classList.contains('is-selected') || rows().filter(r => r.classList.contains('is-selected')).length !== 1 ||
+        d.querySelector('.sw-details-no').textContent.trim() !== `${String(i + 1).padStart(2, '0')} / ${String(n).padStart(2, '0')}`) okc = false;
+  }
+  ok(`[${tag}] wheel click -> list + details in sync (all ${n})`, okc);
+  let okl = true;
+  for (let i = n - 1; i >= 0; i--) { click(rows()[i]); await wait(20); if (segs()[i].getAttribute('aria-pressed') !== 'true' || title() !== rowNames()[i]) okl = false; }
+  ok(`[${tag}] list click -> wheel + details in sync`, okl);
+  segs()[1].dispatchEvent(new w.MouseEvent('mouseover', { bubbles: true, relatedTarget: d.body })); await wait(30);
+  ok(`[${tag}] hover highlights without changing selection`, segs()[1].classList.contains('is-hovered') && rows()[1].classList.contains('is-hovered') && title() === rowNames()[0]);
+  segs()[1].dispatchEvent(new w.MouseEvent('mouseout', { bubbles: true, relatedTarget: d.body })); await wait(30);
+  segs()[0].focus(); key(segs()[0], 'ArrowLeft'); await wait(20); key(d.activeElement, 'Enter'); await wait(20);
+  ok(`[${tag}] keyboard: ArrowLeft wraps + Enter selects`, title() === rowNames()[n - 1]);
+  const [prev, next] = d.querySelectorAll('.sw-step'); click(next); await wait(20);
+  ok(`[${tag}] Next wraps to first`, title() === rowNames()[0]); click(prev); await wait(20);
+  ok(`[${tag}] Previous wraps to last`, title() === rowNames()[n - 1]);
+  d.activeElement.blur(); click(rows()[0]); await wait(20);
+}
+
+async function run() {
+  localStorage.removeItem(KEY);
+  await load();
+
+  // 1. Initial seven-component wheel
+  ok('opens with 7 default components', segs().length === 7 && rowNames()[0] === 'Strategy & Direction');
+  ok('no Business Capabilities / picker anywhere', !/business capabilit/i.test(d.body.textContent) && !d.querySelector('.gl-card,.gl-picker'));
+  ok('no view/edit mode toggle', ![...d.querySelectorAll('button')].some(b => /edit mode|view mode|^edit$|^view$/i.test(b.textContent.trim())));
+  ok('first component selected + details populated', title() === 'Strategy & Direction' && d.querySelectorAll('.te-point-text').length === 4);
+  geometry('7 default'); await syncChecks('7 default');
+
+  // 2. Title + subtitle
+  const t = d.querySelector('.te-centre-title');
+  type(t, 'Project A Operating Model\nfor Quality'); await wait(30);
+  ok('title edit updates hub immediately (2 lines)', hubText() === 'Project A Operating Model|for Quality', hubText());
+  type(d.querySelector('.te-centre-subtitle'), 'Draft for review'); await wait(30);
+  ok('subtitle edit shows in hub', d.querySelector('.sw-center-subtitle')?.textContent === 'Draft for review');
+  type(t, ''); t.blur(); await wait(30);
+  ok('empty title reverts to last value on blur', hubText() === 'Project A Operating Model|for Quality', hubText());
+  click(d.querySelector('.sw-hub-hit')); await wait(20);
+  ok('clicking the hub focuses the title field', d.activeElement === d.querySelector('.te-centre-title')); d.activeElement.blur();
+
+  // 3. Component name + description + details
+  const nm = d.querySelector('.te-name');
+  type(nm, 'Strategy & Vision'); await wait(30);
+  ok('name edit updates wheel label + list immediately', wheelLabel(0) === 'Strategy & Vision' && rowNames()[0] === 'Strategy & Vision', wheelLabel(0));
+  type(nm, '   '); nm.blur(); await wait(30);
+  ok('empty name reverts on blur', title() === 'Strategy & Vision', title());
+  type(d.querySelector('.te-description'), 'New description text.'); await wait(20);
+  type(d.querySelector('.te-details-text'), 'New detail text.'); await wait(20);
+  ok('description + detail edits saved', stored().components[0].description === 'New description text.' && stored().components[0].details === 'New detail text.');
+
+  // 4. Icon
+  const beforeIcon = segs()[0].querySelector('.sw-icon').innerHTML;
+  click(d.querySelector('.te-icon-button')); await wait(30);
+  ok('icon picker opens', d.querySelectorAll('.te-icon-option').length >= 12);
+  click(d.querySelector('.te-icon-option[aria-label="Quality / risk"]')); await wait(30);
+  ok('icon change updates wheel + storage', segs()[0].querySelector('.sw-icon').innerHTML !== beforeIcon && stored().components[0].icon === 'shield' && !d.querySelector('.te-icon-menu'));
+
+  // 5. Checklist + facts
+  click([...d.querySelectorAll('.te-add-inline')].find(b => /Add item/.test(b.textContent))); await wait(30);
+  ok('Add item appends + focuses empty checklist item', d.querySelectorAll('.te-point-text').length === 5 && d.activeElement === d.querySelectorAll('.te-point-text')[4]);
+  type(d.activeElement, 'Quarterly strategy review'); key(d.activeElement, 'Enter'); await wait(30);
+  ok('Enter in checklist item adds the next item', d.querySelectorAll('.te-point-text').length === 6 && d.activeElement === d.querySelectorAll('.te-point-text')[5]);
+  key(d.activeElement, 'Backspace'); await wait(30);
+  ok('Backspace on empty item removes it', d.querySelectorAll('.te-point-text').length === 5 && stored().components[0].checklist[4] === 'Quarterly strategy review');
+  click(d.querySelectorAll('.te-fact .te-remove')[1]); await wait(30);
+  ok('remove fact', d.querySelectorAll('.te-fact').length === 1);
+
+  // 6. Add components -> 8, 9
+  click(d.querySelector('.te-add')); await wait(40);
+  ok('Add component: 8 segments, new one selected after current + name focused', segs().length === 8 && rowNames()[1] === 'New component' && title() === 'New component' && d.activeElement === d.querySelector('.te-name'));
+  type(d.querySelector('.te-name'), 'Customer Experience'); await wait(30);
+  ok('new component name shows on wheel', wheelLabel(1) === 'Customer Experience');
+  geometry('8 after add');
+  click(rows()[7]); await wait(20); click(d.querySelector('.te-add')); await wait(40);
+  type(d.querySelector('.te-name'), 'Risk & Compliance'); await wait(30);
+  ok('9 components after second add (appended after last)', segs().length === 9 && rowNames()[8] === 'Risk & Compliance');
+  geometry('9'); await syncChecks('9');
+
+  // 7. Reorder
+  click(rows()[8]); await wait(20);
+  click(d.querySelector('[data-row] .is-selected').closest('li').querySelector('[data-action="up"]')); await wait(40);
+  ok('Move up: list + wheel order updated, selection kept', rowNames()[7] === 'Risk & Compliance' && wheelLabel(7) === 'Risk & Compliance' && title() === 'Risk & Compliance' && d.querySelector('.sw-details-no').textContent.includes('08 / 09'));
+  ok('focus stays on the move-up button', d.activeElement?.dataset.action === 'up');
+  key(rows()[7], 'ArrowUp', { altKey: true }); await wait(40);
+  ok('Alt+ArrowUp moves the row up', rowNames()[6] === 'Risk & Compliance' && segs()[6].dataset.segment === stored().components[6].id);
+  click(d.querySelector(`[data-row="${stored().components[0].id}"] [data-action="up"]`));
+  ok('Move up disabled on first row', d.querySelector(`[data-row="${stored().components[0].id}"] [data-action="up"]`).disabled);
+  geometry('9 after reorder');
+
+  // 8. Long name
+  click(rows()[2]); await wait(20);
+  const LONG = 'Enterprise Architecture, Integration & Interoperability Standards';
+  type(d.querySelector('.te-name'), LONG); await wait(40);
+  ok('long name kept in list + details (capped at 60 chars)', rowNames()[2] === LONG.slice(0, 60) && title() === LONG.slice(0, 60), rowNames()[2]);
+  geometry('9 with long name');
+  notes.push('long name on wheel: "' + wheelLabel(2) + '"');
+  type(d.querySelector('.te-name'), 'Supercalifragilisticexpialidociousness'); await wait(40);
+  geometry('9 with one very long word');
+  notes.push('long word on wheel: "' + wheelLabel(2) + '"');
+  type(d.querySelector('.te-name'), 'Data & Analytics'); d.activeElement.blur(); await wait(30);
+
+  // 9. Delete down to 5 (+ undo), then to minimum 3
+  const victim = rowNames()[3];
+  click(d.querySelector(`[data-row="${stored().components[3].id}"] [data-action="delete"]`)); await wait(40);
+  ok('Delete removes component from wheel + list', segs().length === 8 && !rowNames().includes(victim));
+  ok('Undo offered', /removed/.test(d.querySelector('.te-toast')?.textContent || ''));
+  click(d.querySelector('.te-toast .te-link')); await wait(40);
+  ok('Undo restores at the same position', segs().length === 9 && rowNames()[3] === victim);
+  for (const i of [8, 7, 6, 5]) { click(d.querySelector(`[data-row="${stored().components[i].id}"] [data-action="delete"]`)); await wait(40); }
+  ok('5 components after deletes', segs().length === 5 && stored().components.length === 5);
+  geometry('5'); await syncChecks('5');
+  key(rows()[0], 'Delete'); await wait(40); key(rows()[0], 'Delete'); await wait(40);
+  ok('3 components (minimum)', segs().length === 3);
+  ok('delete disabled at minimum + hint shown', [...d.querySelectorAll('[data-action="delete"]')].every(b => b.disabled) && /at least 3/.test(d.body.textContent));
+  key(rows()[0], 'Delete'); await wait(40);
+  ok('cannot go below minimum (no empty wheel)', segs().length === 3);
+  geometry('3');
+
+  // 10. Maximum
+  for (let i = 0; i < 9; i++) { click(d.querySelector('.te-add')); await wait(30); }
+  ok('12 components (maximum) + Add disabled', segs().length === 12 && d.querySelector('.te-add').disabled);
+  geometry('12 (new components)');
+  click(d.querySelector('.te-add')); await wait(30);
+  ok('cannot exceed maximum', segs().length === 12);
+
+  // 11. Persistence: configure a 5-component wheel, reload
+  while (segs().length > 5) { click(d.querySelector(`[data-row="${stored().components.at(-1).id}"] [data-action="delete"]`)); await wait(30); }
+  click(rows()[4]); await wait(20); type(d.querySelector('.te-name'), 'Persisted Component'); d.activeElement.blur(); await wait(40);
+  const snap = JSON.stringify(stored());
+  await load();
+  ok('after reload: 5 components restored', segs().length === 5);
+  ok('after reload: names, title, subtitle restored', rowNames()[4] === 'Persisted Component' && hubText() === 'Project A Operating Model|for Quality' && d.querySelector('.sw-center-subtitle')?.textContent === 'Draft for review');
+  ok('after reload: stored data identical', JSON.stringify(stored()) === snap);
+  geometry('5 after reload'); await syncChecks('5 after reload');
+
+  // 12. Corrupt storage falls back to default
+  w.localStorage.setItem(KEY, '{"version":1,"components":[]}');
+  await load();
+  ok('invalid stored data (empty wheel) falls back to default 7', segs().length === 7);
+
+  // 13. Reset
+  type(d.querySelector('.te-name'), 'Changed'); d.activeElement.blur(); await wait(30);
+  const reset = [...d.querySelectorAll('.te-link')].find(b => /Reset/.test(b.textContent));
+  click(reset); await wait(30);
+  ok('Reset asks for confirmation first', /again/.test(reset.textContent) && title() === 'Changed');
+  click(reset); await wait(40);
+  ok('Reset restores the default 7 components', segs().length === 7 && title() === 'Strategy & Direction' && hubText() === 'Target Operating Model|for IT Quality');
+  geometry('7 after reset');
+
+  ok('no console errors / exceptions', errors.length === 0, JSON.stringify(errors));
+  w.localStorage.removeItem(KEY);
+  document.getElementById('out').textContent = 'SUMMARY ' + R.filter(x => x.startsWith('PASS')).length + '/' + R.length + ' passed\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n') + '\n\n' + R.filter(x => x.startsWith('PASS')).length + '/' + R.length + ' passed\n\n' + notes.join('\n');
+}
+run().catch(e => { document.getElementById('out').textContent = 'CRASH ' + e.stack + '\n' + R.join('\n'); });
+</script></body></html>

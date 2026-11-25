@@ -27,3 +27,9 @@ export type {
   WheelSegment,
   WheelTheme,
 } from "./types";
+
+// Core utilities a client needs to theme this component and fill its data model,
+// re-exported so a client imports everything from this one package (works with
+// npm, pnpm and yarn without installing @agile-infographics/core directly).
+export { DEFAULT_PRIMARY, generatePalette, ICON_KEYS, isIconKey, THEME_PRESETS } from "@agile-infographics/core";
+export type { IconKey, ThemePalette, ThemePreset } from "@agile-infographics/core";

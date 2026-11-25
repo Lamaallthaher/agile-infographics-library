@@ -13,13 +13,23 @@ assessment dimensions (3–12).
 - Content and appearance are saved in the browser (Local Storage).
 
 This package is independent of every other component in the Agile Infographics
-Library. Its only library dependency is `@agile-infographics/core`, installed
-automatically.
+Library. Its only library dependency is `@agile-infographics/core`, which is
+installed automatically. Everything a client needs, including the theme
+generator (`generatePalette`, `THEME_PRESETS`) and the icon keys, is exported
+from `@agile-infographics/methodology-flow` itself.
+
+> **Import only from `@agile-infographics/methodology-flow`.** Don't import
+> `@agile-infographics/core` directly: it is a dependency of this package, not
+> of your project, so a strict package manager (pnpm, Yarn PnP) won't let your
+> code reach it. If you do want core's other utilities, install it yourself
+> (`npm install @agile-infographics/core`) with the same version range this
+> package uses.
 
 ## Install
 
 ```bash
-npm install @agile-infographics/methodology-flow
+npm install @agile-infographics/methodology-flow     # npm
+pnpm add @agile-infographics/methodology-flow        # pnpm
 ```
 
 - Peer dependencies: `react` and `react-dom` 19.
@@ -72,8 +82,8 @@ const clientMethodology: MethodologyFlowData = {
 };
 ```
 
-`icon` values are icon keys from `@agile-infographics/core` (`ICON_KEYS` lists
-them). Stored data is validated on load. Missing, corrupt or out-of-range data
+`icon` values are icon keys (`ICON_KEYS`, exported from this package, lists
+them; type `IconKey`). Stored data is validated on load. Missing, corrupt or out-of-range data
 falls back to `defaultData`.
 
 ## Read-only infographic
@@ -82,8 +92,7 @@ Import from `/renderer` to display the infographic without any editing code
 (the editor, appearance panel and hooks are not bundled):
 
 ```tsx
-import { generatePalette } from "@agile-infographics/core";
-import { MethodologyFlow, paletteToMethodologyTheme, type FlowModel } from "@agile-infographics/methodology-flow/renderer";
+import { MethodologyFlow, generatePalette, paletteToMethodologyTheme, type FlowModel } from "@agile-infographics/methodology-flow/renderer";
 
 const model: FlowModel = { title, subtitle, steps, wheel };   // icons are optional React nodes
 
@@ -98,13 +107,13 @@ const model: FlowModel = { title, subtitle, steps, wheel };   // icons are optio
 ## Theming
 
 - `paletteToMethodologyTheme(palette, overrides?)` maps a palette from
-  `generatePalette(baseColour)` (in `@agile-infographics/core`) onto this
+  `generatePalette(baseColour)` (exported from this package) onto this
   component's theme.
 - `overrides` can set `background`, `panel`, `heading`, `text`, `kicker`,
   `connector`, `stepFrom`, `stepTo`, `dimFrom` and `dimTo`. Text you don't
   override is re-checked for contrast automatically.
 - `checkThemeContrast(theme)` reports every text/background pair against WCAG AA.
-- Presets are in `THEME_PRESETS` (core).
+- Presets are in `THEME_PRESETS` (exported from this package).
 
 ## Main exports
 
@@ -117,7 +126,8 @@ const model: FlowModel = { title, subtitle, steps, wheel };   // icons are optio
 | `MethodologyFlow` | `.` and `/renderer` | Renderer (read-only without slots) |
 | `computeFlowLayout`, `computeWheelLayout`, `chooseFlowMode` | `.` and `/renderer` | Pure layout engine |
 | `paletteToMethodologyTheme`, `methodologyThemeToCssVars`, `checkThemeContrast` | `.` and `/renderer` | Theming |
-| Types: `MethodologyFlowData`, `MethodologyAppearance`, `FlowModel`, `MethodologyTheme`, … | `.` | |
+| `generatePalette`, `THEME_PRESETS`, `DEFAULT_PRIMARY`, `ICON_KEYS`, `isIconKey` | `.` and `/renderer` | Re-exported from core, so you never import core directly |
+| Types: `MethodologyFlowData`, `MethodologyAppearance`, `FlowModel`, `MethodologyTheme`, `ThemePalette`, `IconKey`, … | `.` | |
 
 ## Development
 

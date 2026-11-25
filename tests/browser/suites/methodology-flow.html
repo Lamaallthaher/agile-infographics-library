@@ -1,0 +1,311 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<iframe id="f" style="border:0;width:1400px;height:700px"></iframe>
+<pre id="out" style="font:13px monospace;white-space:pre-wrap">waiting</pre>
+<script>
+const KEY = 'agile-infographics.methodology-flow.v1', AKEY = KEY + '.appearance';
+const f = document.getElementById('f'); const R = []; const errors = []; const notes = [];
+const ok = (n, c, extra = '') => R.push((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : '  ' + extra));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let d, w;
+function load(width = 1400, hash = '#/methodology-flow') {
+  f.style.width = width + 'px';
+  return new Promise(res => {
+    f.onload = async () => {
+      d = f.contentDocument; w = f.contentWindow;
+      w.addEventListener('error', e => errors.push(String(e.message)));
+      const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
+      for (let i = 0; i < 60 && !d.querySelector('.mf-dim-node, .sw-seg'); i++) await wait(100);
+      const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
+      await wait(150); res();
+    };
+    f.src = '/index.html?' + Math.random() + hash;
+  });
+}
+const parse = s => s.match(/[\d.]+/g).map(Number).slice(0, 3);
+const lum = rgb => { const [r, g, b] = rgb.map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const cr = (a, b) => { const x = lum(parse(a)), y = lum(parse(b)); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const cs = (el, p) => w.getComputedStyle(el)[p];
+const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+function type(el, text) {
+  el.focus();
+  const proto = el.tagName === 'TEXTAREA' ? w.HTMLTextAreaElement.prototype : w.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, text);
+  el.dispatchEvent(new w.Event('input', { bubbles: true }));
+}
+const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const key = (el, k) => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+const stored = () => JSON.parse(w.localStorage.getItem(KEY));
+const storedA = () => JSON.parse(w.localStorage.getItem(AKEY));
+const field = label => $$('textarea').find(t => t.getAttribute('aria-label') === label);
+const steps = () => $$('.mf-step');
+const dims = () => $$('.mf-dim-node');
+const mode = () => $('.mf-body').dataset.mode;
+const overlap = (a, b, pad = 0) => a.left < b.right - pad && b.left < a.right - pad && a.top < b.bottom - pad && b.top < a.bottom - pad;
+
+/** Visual-integrity checks for whatever is currently rendered. */
+function integrity(tag) {
+  const n = steps().length, m = dims().length;
+  const bad = [];
+  // Step text blocks never overlap each other or any node.
+  const texts = $$('.mf-step-text').map(e => e.getBoundingClientRect());
+  const nodes = $$('.mf-node-halo').map(e => e.getBoundingClientRect());
+  texts.forEach((a, i) => texts.forEach((b, j) => { if (i < j && overlap(a, b, 1)) bad.push(`text ${i}/${j} overlap`); }));
+  texts.forEach((a, i) => nodes.forEach((b, j) => { if (overlap(a, b, 1)) bad.push(`text ${i} over node ${j}`); }));
+  // Nodes sit on the connector line (horizontal modes) / in a column (vertical).
+  const line = $('.mf-line').getBoundingClientRect();
+  if (mode() !== 'vertical') nodes.forEach((b, i) => { if (Math.abs((b.top + b.bottom) / 2 - (line.top + line.bottom) / 2) > 2) bad.push(`node ${i} off line`); });
+  else nodes.forEach((b, i) => { if (Math.abs((b.left + b.right) / 2 - (line.left + line.right) / 2) > 2) bad.push(`node ${i} off vertical line`); });
+  // Nodes are in step order along the flow.
+  for (let i = 1; i < nodes.length; i++) if ((mode() === 'vertical' ? nodes[i].top <= nodes[i - 1].top : nodes[i].left <= nodes[i - 1].left)) bad.push(`node order ${i}`);
+  // Nothing in the panel overflows it horizontally.
+  const panel = $('.mf-panel').getBoundingClientRect();
+  $$('.mf-panel *').forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.right > panel.right + 1 || r.left < panel.left - 1) && !e.closest('.te-icon-menu')) bad.push('overflow ' + (e.className.baseVal ?? e.className)); });
+  // Text never clipped inside step blocks (scroll overflow).
+  $$('.mf-step-text textarea, .mf-legend textarea, .mf-result textarea').forEach(t => { if (t.scrollHeight > t.clientHeight + 2) bad.push('clipped ' + t.getAttribute('aria-label')); });
+  // Wheel: nodes evenly spaced, inside disc, not overlapping each other or the centre.
+  const wheel = $('.mf-wheel').getBoundingClientRect(); const cx = (wheel.left + wheel.right) / 2, cy = (wheel.top + wheel.bottom) / 2;
+  const centre = $('.mf-wheel-center-fill').getBoundingClientRect(); const cr0 = centre.width / 2;
+  const dn = dims().map(e => { const r = e.getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2, r: r.width / 2 }; });
+  dn.forEach((a, i) => {
+    if (Math.hypot(a.x - cx, a.y - cy) + a.r > wheel.width / 2 * 0.97) bad.push(`dim ${i} outside disc`);
+    if (Math.hypot(a.x - cx, a.y - cy) - a.r < cr0 + 1) bad.push(`dim ${i} hits centre`);
+    dn.forEach((b, j) => { if (i < j && Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + 1) bad.push(`dims ${i}/${j} touch`); });
+  });
+  const angles = dn.map(a => (Math.atan2(a.y - cy, a.x - cx) * 180 / Math.PI + 450) % 360);
+  if (!angles.every((a, i) => Math.abs(((a - i * 360 / m) + 540) % 360 - 180) < 1.5)) bad.push('dims not evenly spaced from 12 o\'clock ' + JSON.stringify(angles.map(Math.round)));
+  // Centre label fits in the centre circle.
+  const lab = $('.mf-wheel-center').getBoundingClientRect();
+  if (lab.width > centre.width || lab.height > centre.height * 1.02) bad.push('centre text larger than centre');
+  const de = d.documentElement; if (de.scrollWidth > de.clientWidth + 1) bad.push(`page h-overflow ${de.scrollWidth}>${de.clientWidth}`);
+  ok(`[${tag}] ${n} steps / ${m} dims, mode=${mode()}: no overlap, aligned, evenly spaced, nothing clipped or overflowing`, bad.length === 0, JSON.stringify(bad.slice(0, 8)));
+  ok(`[${tag}] legend rows = dimensions`, $$('.mf-legend-row').length === m && $$('.mf-step-node').length === n);
+  notes.push(`${tag}: mode=${mode()} n=${n} m=${m} node=${Math.round(dn[0]?.r * 2)}px`);
+}
+
+async function run() {
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
+  await load(1400);
+  ok('opens Methodology Flow with default example (4 steps, 6 dimensions)', steps().length === 4 && dims().length === 6 && $('.mf-title').value === 'Building an assessment model');
+  ok('wide layout: flow and wheel side by side (row mode)', mode() === 'row');
+  ok('centre shows automatic count', $('.mf-wheel-value').placeholder === '6' && $('.mf-wheel-value').value === '');
+  ok('steps alternate above / below the connector', steps().map(s => s.querySelector('.mf-step-text').dataset.side).join() === 'top,bottom,top,bottom');
+  ok('step node colours progress (all different)', new Set($$('.mf-node-core').map(e => cs(e, 'backgroundColor'))).size === 4);
+  integrity('default');
+
+  // ---- Editing text ----
+  type(field('Infographic title'), 'Our assessment approach'); await wait(30);
+  ok('title edit saved immediately', stored().title === 'Our assessment approach');
+  type(field('Step title (step 2)'), 'Derive clear expectations'); type(field('Step label (step 2)'), 'Analysis'); await wait(30);
+  ok('step title + label edit', stored().steps[1].title === 'Derive clear expectations' && stored().steps[1].kicker === 'Analysis');
+  type(field('Step title (step 2)'), ''); field('Step title (step 2)').blur(); await wait(30);
+  ok('empty step title reverts on blur', stored().steps[1].title === 'Derive clear expectations');
+  const b0 = field('Step point (step 1)'); type(b0, 'Industry standards'); key(b0, 'Enter'); await wait(60);
+  ok('Enter in a point adds the next point and focuses it', stored().steps[0].bullets.length === 4 && stored().steps[0].bullets[1] === '' && d.activeElement.getAttribute('aria-label') === 'Step point (step 1)');
+  key(d.activeElement, 'Backspace'); await wait(60);
+  ok('Backspace in an empty point removes it', stored().steps[0].bullets.length === 3);
+  click(steps()[1].querySelector('.mfe-add-point')); await wait(60); type(d.activeElement, 'Map each to an owner'); await wait(30);
+  ok('Add point on a step without points', stored().steps[1].bullets[0] === 'Map each to an owner');
+  type(field('Step takeaway (step 3)'), ''); await wait(30); field('Step takeaway (step 3)').blur();
+  ok('optional takeaway can be cleared', stored().steps[2].takeaway === '');
+  type(field('Centre value (empty = number of dimensions)'), '6+'); await wait(30);
+  ok('custom centre value', $('.mf-wheel-value').value === '6+'); type($('.mf-wheel-value'), ''); await wait(20);
+  type(field('Centre label'), 'Assessment areas'); type(field('Dimension label'), 'Governance'); await wait(30);
+  ok('centre label + dimension label edit', stored().wheel.centerLabel === 'Assessment areas' && stored().wheel.dimensions[0].label === 'Governance');
+
+  // ---- Icons ----
+  click(steps()[0].querySelector('.mfe-node-button')); await wait(40);
+  ok('step icon picker opens with expanded icon set', $$('.te-icon-option').length >= 30);
+  click($('.te-icon-option[aria-label="Research"]')); await wait(40);
+  ok('step icon changed', stored().steps[0].icon === 'search' && !$('.te-icon-menu'));
+  click($$('.mfe-badge-button')[1]); await wait(40); click($('.te-icon-option[aria-label="Cloud"]')); await wait(40);
+  ok('dimension icon changed', stored().wheel.dimensions[1].icon === 'cloud');
+
+  // ---- Dimension colour + selection ----
+  const colorIn = $$('.mf-legend-row')[2].querySelector('input[type=color]');
+  Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set.call(colorIn, '#d97706'); colorIn.dispatchEvent(new w.Event('input', { bubbles: true })); await wait(40);
+  ok('custom dimension colour applied to node', stored().wheel.dimensions[2].color === '#d97706' && cs(dims()[2], 'backgroundColor') === 'rgb(217, 119, 6)');
+  ok('node text readable on custom colour', cr(cs(dims()[2], 'color'), cs(dims()[2], 'backgroundColor')) >= 4.5);
+  click($$('.mf-legend-row')[2].querySelector('[data-action="auto-color"]')); await wait(40);
+  ok('dimension colour back to automatic', stored().wheel.dimensions[2].color === null);
+  click(dims()[3]); await wait(30);
+  ok('click wheel node selects it + legend row', dims()[3].classList.contains('is-selected') && $$('.mf-legend-row')[3].classList.contains('is-selected'));
+  click($$('.mf-legend-select')[1]); await wait(30);
+  ok('click legend row selects wheel node', dims()[1].classList.contains('is-selected') && !dims()[3].classList.contains('is-selected'));
+
+  // ---- Reorder ----
+  const firstId = stored().steps[0].id;
+  click(steps()[0].querySelector('[data-action="later"]')); await wait(50);
+  ok('move step later', stored().steps[1].id === firstId && steps()[1].dataset.step === firstId && $$('.mf-step-no')[1].textContent === '02');
+  click(steps()[1].querySelector('[data-action="earlier"]')); await wait(50);
+  ok('move step earlier + earlier disabled on first', stored().steps[0].id === firstId && steps()[0].querySelector('[data-action="earlier"]').disabled);
+  const d0 = stored().wheel.dimensions[0].id;
+  click($$('.mf-legend-row')[0].querySelector('[data-action="down"]')); await wait(50);
+  ok('move dimension down (wheel + legend order)', stored().wheel.dimensions[1].id === d0 && dims()[1].dataset.dim === d0);
+  click($$('.mf-legend-row')[1].querySelector('[data-action="up"]')); await wait(50);
+
+  // ---- Delete + undo ----
+  const s2 = stored().steps[1].title;
+  click(steps()[1].querySelector('[data-action="delete"]')); await wait(50);
+  ok('delete step', steps().length === 3 && !stored().steps.some(s => s.title === s2));
+  click([...$$('.mfe-toast .te-link')].find(b => /Undo/.test(b.textContent))); await wait(50);
+  ok('undo restores step at same position', steps().length === 4 && stored().steps[1].title === s2);
+  const dl = stored().wheel.dimensions[4].label;
+  click($$('.mf-legend-row')[4].querySelector('[data-action="delete"]')); await wait(50);
+  ok('delete dimension', dims().length === 5);
+  click([...$$('.mfe-toast .te-link')].find(b => /Undo/.test(b.textContent))); await wait(50);
+  ok('undo restores dimension', dims().length === 6 && stored().wheel.dimensions[4].label === dl);
+
+  // ---- Step counts 2..8 ----
+  while (steps().length > 2) { click(steps()[steps().length - 1].querySelector('[data-action="delete"]')); await wait(40); }
+  ok('minimum 2 steps: delete disabled', steps().every(s => s.querySelector('[data-action="delete"]').disabled));
+  integrity('2 steps');
+  for (const n of [3, 5, 6, 8]) { while (steps().length < n) { click($('[data-action="add-step"]')); await wait(50); } d.activeElement.blur(); integrity(`${n} steps`); }
+  ok('maximum 8 steps: add disabled', $('[data-action="add-step"]').disabled && steps().every(s => s.querySelector('[data-action="insert"]').disabled));
+  while (steps().length > 4) { click(steps()[steps().length - 1].querySelector('[data-action="delete"]')); await wait(40); }
+
+  // ---- Dimension counts 3..12 ----
+  while (dims().length > 3) { click($$('.mf-legend-row').at(-1).querySelector('[data-action="delete"]')); await wait(40); }
+  ok('minimum 3 dimensions: delete disabled', $$('.mf-legend-row [data-action="delete"]').every(b => b.disabled));
+  integrity('3 dims');
+  for (const m of [5, 7, 9, 12]) { while (dims().length < m) { click($('[data-action="add-dimension"]')); await wait(50); } d.activeElement.blur(); integrity(`${m} dims`); }
+  ok('maximum 12 dimensions: add disabled', $('[data-action="add-dimension"]').disabled);
+  ok('centre count follows dimensions', $('.mf-wheel-value').placeholder === '12');
+
+  // ---- Long text ----
+  const LONG = 'An unusually long step title that keeps going to test wrapping behaviour';
+  type(field('Step title (step 1)'), LONG); type(field('Step title (step 2)'), LONG);
+  type(field('Step description (step 2)'), 'A very long description. '.repeat(14));
+  type(field('Step point (step 1)'), 'A long bullet point that wraps across several lines inside its column to check spacing');
+  type(field('Step label (step 3)'), 'Supercalifragilisticexpialidocious');
+  type(field('Centre label'), 'Assessment dimensions for the whole organisation');
+  $$('textarea[aria-label="Dimension label"]').slice(0, 3).forEach(t => type(t, 'A long dimension label that needs wrapping'));
+  await wait(80); d.activeElement.blur(); await wait(40);
+  integrity('long text, 12 dims');
+  while (dims().length > 6) { click($$('.mf-legend-row').at(-1).querySelector('[data-action="delete"]')); await wait(40); }
+  integrity('long text, 6 dims');
+
+  // ---- Responsive ----
+  for (const [wd, expect] of [[1000, 'stacked'], [390, 'vertical']]) {
+    await load(wd);
+    ok(`width ${wd}px → ${expect} layout`, mode() === expect, mode());
+    integrity(`${wd}px`);
+  }
+  await load(1400);
+  for (const n of [6, 8]) { while (steps().length < n) { click($('[data-action="add-step"]')); await wait(50); } }
+  d.activeElement.blur(); await wait(100);
+  ok('8 steps at 1400px switch to a layout that fits', mode() !== 'row' || $$('.mf-step-text').every(e => e.getBoundingClientRect().width >= 140), mode());
+  integrity('8 steps @1400');
+  while (steps().length > 4) { click(steps()[steps().length - 1].querySelector('[data-action="delete"]')); await wait(40); }
+
+  // ---- Appearance: placement, typography, nodes ----
+  const seg = (label, text) => [...$(`[role=group][aria-label="${label}"]`).querySelectorAll('button')].find(b => b.textContent === text);
+  click(seg('Step text position', 'Above')); await wait(60);
+  ok('placement: all text above', steps().every(s => s.querySelector('.mf-step-text').dataset.side === 'top')); integrity('above');
+  click(seg('Step text position', 'Below')); await wait(60);
+  ok('placement: all text below', steps().every(s => s.querySelector('.mf-step-text').dataset.side === 'bottom')); integrity('below');
+  click(seg('Step text position', 'Alternate')); await wait(60);
+  const fs0 = parseFloat(cs($('.mf-step-title'), 'fontSize'));
+  click(seg('Text size', 'XL')); await wait(60);
+  ok('text size XL enlarges text', parseFloat(cs($('.mf-step-title'), 'fontSize')) > fs0 * 1.15); integrity('XL text');
+  click(seg('Heading weight', 'Heavy')); await wait(40);
+  ok('heading weight applied', cs($('.mf-step-title'), 'fontWeight') === '800');
+  click(seg('Step text alignment', 'Centre')); await wait(60);
+  ok('centre alignment applied', cs($('.mf-step-text'), 'textAlign') === 'center'); integrity('centred');
+  click(seg('Dimension nodes', 'Icons')); await wait(40);
+  ok('dimension nodes show icons', dims().every(n => n.querySelector('svg')));
+  click(seg('Text size', 'M')); click(seg('Heading weight', 'Bold')); click(seg('Step text alignment', 'Left')); click(seg('Dimension nodes', 'Numbers')); await wait(60);
+
+  // ---- Theme: presets, custom colours, contrast ----
+  const panelVars = () => cs($('.mf'), 'getPropertyValue') ;
+  const mfVar = n => $('.mf').style.getPropertyValue(n);
+  const defBg = mfVar('--mf-background');
+  function contrastPairs(tag) {
+    const pairs = [
+      ['title', cs($('.mf-title'), 'color'), cs($('.mf'), 'backgroundColor')],
+      ['step title', cs($('.mf-step-title'), 'color'), cs($('.mf-panel'), 'backgroundColor')],
+      ['bullet', cs($('.mf-bullets'), 'color'), cs($('.mf-panel'), 'backgroundColor')],
+      ['kicker', cs($('.mf-kicker'), 'color'), cs($('.mf-panel'), 'backgroundColor')],
+      ['takeaway', cs($('.mf-takeaway'), 'color'), cs($('.mf-panel'), 'backgroundColor')],
+      ['legend desc', cs($('.mf-legend-desc'), 'color'), cs($('.mf-panel'), 'backgroundColor')],
+      ['centre label', cs($('.mf-wheel-label'), 'color'), cs($('.mf-wheel-center-fill'), 'fill')],
+      ['dim node', cs(dims()[0], 'color'), cs(dims()[0], 'backgroundColor')],
+      ['dim node last', cs(dims().at(-1), 'color'), cs(dims().at(-1), 'backgroundColor')],
+    ];
+    const iconPairs = $$('.mf-node-core').map((e, i) => ['step icon ' + i, cs(e, 'color'), cs(e, 'backgroundColor')]);
+    const bad = pairs.filter(([, a, b]) => cr(a, b) < 4.5).map(([n, a, b]) => `${n} ${cr(a, b).toFixed(2)}`)
+      .concat(iconPairs.filter(([, a, b]) => cr(a, b) < 3).map(([n, a, b]) => `${n} ${cr(a, b).toFixed(2)}`));
+    ok(`[${tag}] text ≥4.5:1 and step icons ≥3:1`, bad.length === 0, bad.join('; '));
+    notes.push(`${tag}: ` + pairs.map(([n, a, b]) => `${n} ${cr(a, b).toFixed(1)}`).join(', '));
+  }
+  contrastPairs('default navy');
+  for (const p of ['Ocean', 'Teal', 'Emerald', 'Indigo', 'Plum', 'Crimson', 'Amber', 'Graphite']) {
+    click([...$$('.mfe-preset')].find(b => b.textContent.trim() === p)); await wait(60);
+    ok(`preset ${p} applied`, storedA().preset === p.toLowerCase() && mfVar('--mf-background') !== defBg);
+    contrastPairs(`preset ${p}`);
+  }
+  const hex = () => $('.te-hex');
+  for (const [name, c] of [['orange', '#ff7a00'], ['purple', '#7b2cbf'], ['green', '#2e9d4f'], ['red', '#d62828'], ['blue', '#1e6fd9'], ['very dark', '#0a0a0a'], ['very light', '#f5f0e6']]) {
+    type(hex(), c); await wait(60);
+    ok(`[${name}] custom base colour applied`, storedA().base === c && (storedA().preset === null || name === 'purple'));
+    ok(`[${name}] coordinated palette (not flat)`, new Set(['--mf-background', '--mf-panel', '--mf-kicker', '--mf-step-from', '--mf-step-to', '--mf-dim-from', '--mf-connector'].map(mfVar)).size >= 6);
+    contrastPairs(name);
+    ok(`[${name}] contrast report says all pass`, /All text meets/.test($('.mfe-contrast').textContent));
+    hex().blur();
+  }
+  // Advanced overrides: light panel → text flips to dark automatically.
+  $('.mfe-advanced').open = true; await wait(30);
+  const ov = k => $(`[data-override="${k}"] input[type=color]`);
+  const setColor = (el, v) => { Object.getOwnPropertyDescriptor(w.HTMLInputElement.prototype, 'value').set.call(el, v); el.dispatchEvent(new w.Event('input', { bubbles: true })); };
+  setColor(ov('panel'), '#f4f6f8'); setColor(ov('background'), '#ffffff'); await wait(60);
+  ok('override panel + background to light', storedA().overrides.panel === '#f4f6f8' && cs($('.mf-panel'), 'backgroundColor') === 'rgb(244, 246, 248)');
+  contrastPairs('light panel override (auto text)');
+  setColor(ov('heading'), '#e8eef4'); await wait(60);
+  ok('low-contrast manual override is flagged', /hard to read/.test($('.mfe-contrast').textContent) && /Step titles/.test($('.mfe-contrast').textContent));
+  click($(`[data-override="heading"] .te-link`)); await wait(40);
+  ok('override back to auto clears warning', !storedA().overrides.heading && /All text meets/.test($('.mfe-contrast').textContent));
+  setColor(ov('stepFrom'), '#7b2cbf'); setColor(ov('stepTo'), '#ff7a00'); await wait(60);
+  ok('step colour range override', cs($('.mf-node-core'), 'backgroundColor') === 'rgb(123, 44, 191)');
+  contrastPairs('step range override');
+  integrity('light override');
+
+  // ---- Persistence ----
+  const snapC = w.localStorage.getItem(KEY), snapA = w.localStorage.getItem(AKEY);
+  await load(1400);
+  ok('after reload: content identical', w.localStorage.getItem(KEY) === snapC && $('.mf-title').value === 'Our assessment approach');
+  const canon = o => JSON.stringify(o, Object.keys(o).sort()) + JSON.stringify(o.overrides, Object.keys(o.overrides).sort()) + JSON.stringify(o.typography);
+  ok('after reload: appearance identical + applied', canon(storedA()) === canon(JSON.parse(snapA)) && cs($('.mf-panel'), 'backgroundColor') === 'rgb(244, 246, 248)');
+  ok('content and appearance stored under separate keys', !('overrides' in stored()) && !('steps' in storedA()));
+
+  // ---- Reset ----
+  const reset = $('[data-action="reset"]'); click(reset); await wait(30);
+  ok('reset asks for confirmation', /again/.test(reset.textContent) && $('.mf-title').value === 'Our assessment approach');
+  click(reset); await wait(80);
+  ok('reset restores default content and default theme', $('.mf-title').value === 'Building an assessment model' && steps().length === 4 && dims().length === 6 && storedA().base === '#1f4670' && Object.keys(storedA().overrides).length === 0 && mfVar('--mf-background') === defBg);
+  integrity('after reset');
+
+  // ---- Invalid storage ----
+  w.localStorage.setItem(KEY, '{"version":1,"steps":[],"wheel":{"dimensions":[]}}'); w.localStorage.setItem(AKEY, '{"version":7}');
+  await load(1400);
+  ok('invalid stored data falls back to defaults', steps().length === 4 && dims().length === 6 && mfVar('--mf-background') === defBg);
+  w.localStorage.setItem(KEY, 'not json');
+  await load(1400);
+  ok('corrupt JSON falls back to defaults', steps().length === 4);
+
+  // ---- Storage unavailable ----
+  w.Storage.prototype.setItem = () => { throw new Error('QuotaExceeded'); };
+  type(field('Infographic title'), 'Still editable'); await wait(50);
+  ok('storage unavailable: editing still works + warning shown', $('.mf-title').value === 'Still editable' && /cannot be saved/.test($('.mfe-saved').textContent));
+
+  // ---- Component switcher + TOM untouched ----
+  await load(1400, '#/tom-wheel');
+  ok('TOM page still renders 7-segment wheel', $$('.sw-seg').length === 7 && !$('.mf'));
+  ok('component nav present with 2 components', $$('.gl-nav-link').length === 2 && $('.gl-nav-link[aria-current=page]').textContent.includes('TOM'));
+  click($$('.gl-nav-link')[1]); w.location.hash = '#/methodology-flow'; await wait(400);
+  ok('switch to Methodology Flow via nav', !!$('.mf') && !$('.sw-seg'));
+
+  ok('no console errors / exceptions', errors.length === 0, JSON.stringify(errors.slice(0, 5)));
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
+  document.getElementById('out').textContent = 'SUMMARY ' + R.filter(x => x.startsWith('PASS')).length + '/' + R.length + ' passed\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n') + '\n\n' + notes.join('\n');
+}
+run().catch(e => { document.getElementById('out').textContent = 'CRASH ' + e.stack + '\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n'); });
+</script></body></html>

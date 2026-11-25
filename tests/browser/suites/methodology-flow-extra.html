@@ -1,0 +1,169 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<iframe id="f" style="border:0;width:1400px;height:700px"></iframe>
+<pre id="out" style="font:13px monospace;white-space:pre-wrap">waiting</pre>
+<script>
+const KEY = 'agile-infographics.methodology-flow.v1', AKEY = KEY + '.appearance';
+const f = document.getElementById('f'); const R = []; const errors = []; const notes = [];
+const ok = (n, c, extra = '') => R.push((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : '  ' + extra));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let d, w;
+function load(width = 1400, hash = '#/methodology-flow') {
+  f.style.width = width + 'px';
+  return new Promise(res => {
+    f.onload = async () => {
+      d = f.contentDocument; w = f.contentWindow;
+      w.addEventListener('error', e => errors.push(String(e.message)));
+      const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
+      for (let i = 0; i < 60 && !d.querySelector('.mf-dim-node, .sw-seg'); i++) await wait(100);
+      const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
+      await wait(150); res();
+    };
+    f.src = '/index.html?' + Math.random() + hash;
+  });
+}
+const parse = s => s.match(/[\d.]+/g).map(Number).slice(0, 3);
+const lum = rgb => { const [r, g, b] = rgb.map(v => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const cr = (a, b) => { const x = lum(parse(a)), y = lum(parse(b)); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+const cs = (el, p) => w.getComputedStyle(el)[p];
+const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+function type(el, text) {
+  el.focus();
+  const proto = el.tagName === 'TEXTAREA' ? w.HTMLTextAreaElement.prototype : w.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, text);
+  el.dispatchEvent(new w.Event('input', { bubbles: true }));
+}
+const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const key = (el, k) => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+const stored = () => JSON.parse(w.localStorage.getItem(KEY));
+const storedA = () => JSON.parse(w.localStorage.getItem(AKEY));
+const field = label => $$('textarea').find(t => t.getAttribute('aria-label') === label);
+const steps = () => $$('.mf-step');
+const dims = () => $$('.mf-dim-node');
+const mode = () => $('.mf-body').dataset.mode;
+const overlap = (a, b, pad = 0) => a.left < b.right - pad && b.left < a.right - pad && a.top < b.bottom - pad && b.top < a.bottom - pad;
+
+/** Visual-integrity checks for whatever is currently rendered. */
+function integrity(tag) {
+  const n = steps().length, m = dims().length;
+  const bad = [];
+  // Step text blocks never overlap each other or any node.
+  const texts = $$('.mf-step-text').map(e => e.getBoundingClientRect());
+  const nodes = $$('.mf-node-halo').map(e => e.getBoundingClientRect());
+  texts.forEach((a, i) => texts.forEach((b, j) => { if (i < j && overlap(a, b, 1)) bad.push(`text ${i}/${j} overlap`); }));
+  texts.forEach((a, i) => nodes.forEach((b, j) => { if (overlap(a, b, 1)) bad.push(`text ${i} over node ${j}`); }));
+  // Nodes sit on the connector line (horizontal modes) / in a column (vertical).
+  const line = $('.mf-line').getBoundingClientRect();
+  if (mode() !== 'vertical') nodes.forEach((b, i) => { if (Math.abs((b.top + b.bottom) / 2 - (line.top + line.bottom) / 2) > 2) bad.push(`node ${i} off line`); });
+  else nodes.forEach((b, i) => { if (Math.abs((b.left + b.right) / 2 - (line.left + line.right) / 2) > 2) bad.push(`node ${i} off vertical line`); });
+  // Nodes are in step order along the flow.
+  for (let i = 1; i < nodes.length; i++) if ((mode() === 'vertical' ? nodes[i].top <= nodes[i - 1].top : nodes[i].left <= nodes[i - 1].left)) bad.push(`node order ${i}`);
+  // Nothing in the panel overflows it horizontally.
+  const panel = $('.mf-panel').getBoundingClientRect();
+  $$('.mf-panel *').forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.right > panel.right + 1 || r.left < panel.left - 1) && !e.closest('.te-icon-menu')) bad.push('overflow ' + (e.className.baseVal ?? e.className)); });
+  // Text never clipped inside step blocks (scroll overflow).
+  $$('.mf-step-text textarea, .mf-legend textarea, .mf-result textarea').forEach(t => { if (t.scrollHeight > t.clientHeight + 2) bad.push('clipped ' + t.getAttribute('aria-label')); });
+  // Wheel: nodes evenly spaced, inside disc, not overlapping each other or the centre.
+  const wheel = $('.mf-wheel').getBoundingClientRect(); const cx = (wheel.left + wheel.right) / 2, cy = (wheel.top + wheel.bottom) / 2;
+  const centre = $('.mf-wheel-center-fill').getBoundingClientRect(); const cr0 = centre.width / 2;
+  const dn = dims().map(e => { const r = e.getBoundingClientRect(); return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2, r: r.width / 2 }; });
+  dn.forEach((a, i) => {
+    if (Math.hypot(a.x - cx, a.y - cy) + a.r > wheel.width / 2 * 0.97) bad.push(`dim ${i} outside disc`);
+    if (Math.hypot(a.x - cx, a.y - cy) - a.r < cr0 + 1) bad.push(`dim ${i} hits centre`);
+    dn.forEach((b, j) => { if (i < j && Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r + 1) bad.push(`dims ${i}/${j} touch`); });
+  });
+  const angles = dn.map(a => (Math.atan2(a.y - cy, a.x - cx) * 180 / Math.PI + 450) % 360);
+  if (!angles.every((a, i) => Math.abs(((a - i * 360 / m) + 540) % 360 - 180) < 1.5)) bad.push('dims not evenly spaced from 12 o\'clock ' + JSON.stringify(angles.map(Math.round)));
+  // Centre label fits in the centre circle.
+  const lab = $('.mf-wheel-center').getBoundingClientRect();
+  if (lab.width > centre.width || lab.height > centre.height * 1.02) bad.push('centre text larger than centre');
+  const de = d.documentElement; if (de.scrollWidth > de.clientWidth + 1) bad.push(`page h-overflow ${de.scrollWidth}>${de.clientWidth}`);
+  ok(`[${tag}] ${n} steps / ${m} dims, mode=${mode()}: no overlap, aligned, evenly spaced, nothing clipped or overflowing`, bad.length === 0, JSON.stringify(bad.slice(0, 8)));
+  ok(`[${tag}] legend rows = dimensions`, $$('.mf-legend-row').length === m && $$('.mf-step-node').length === n);
+  notes.push(`${tag}: mode=${mode()} n=${n} m=${m} node=${Math.round(dn[0]?.r * 2)}px`);
+}
+
+async function run() {
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
+  await load(1400);
+  const mfVar = n => $('.mf').style.getPropertyValue(n);
+  const defBg = mfVar('--mf-background');
+
+  // ---- Text fields not covered by t6 ----
+  type(field('Subtitle'), 'Audit subtitle'); await wait(30);
+  ok('subtitle edit saved', stored().subtitle === 'Audit subtitle' && $$('textarea').some(t => t.value === 'Audit subtitle'));
+  const descs = $$('textarea').filter(t => /^Step description/.test(t.getAttribute('aria-label')));
+  type(descs[0], 'Audit description'); await wait(30);
+  const descStep = Number(descs[0].getAttribute('aria-label').match(/step (\d+)/)[1]) - 1;
+  ok('step description edit saved', stored().steps[descStep].description === 'Audit description');
+  type(field('Dimension description'), 'Audit dim description'); await wait(30);
+  ok('dimension description edit saved', stored().wheel.dimensions.some(x => x.description === 'Audit dim description'));
+  type(field('Result title'), 'Audit result'); type(field('Result description'), 'Audit result text'); await wait(30);
+  ok('result title + description saved', stored().wheel.resultTitle === 'Audit result' && stored().wheel.resultDescription === 'Audit result text');
+  const dl = field('Dimension label'); const before = dl.value; type(dl, ''); dl.blur(); await wait(40);
+  ok('empty dimension label reverts on blur', field('Dimension label').value === before && stored().wheel.dimensions[0].label === before);
+  type(field('Subtitle'), ''); field('Subtitle').blur(); await wait(30);
+  ok('optional subtitle may be emptied', stored().subtitle === '');
+  type(field('Subtitle'), 'Audit subtitle'); await wait(30);
+
+  // ---- Insert / add ----
+  const ids0 = stored().steps.map(s => s.id);
+  click(steps()[0].querySelector('[data-action="insert"]')); await wait(60);
+  const ids1 = stored().steps.map(s => s.id);
+  ok('insert step after step 1 lands at position 2', ids1.length === 5 && ids1[0] === ids0[0] && ids1[2] === ids0[1] && !ids0.includes(ids1[1]) && steps().length === 5);
+  ok('inserted step focused for typing', d.activeElement && /\(step 2\)/.test(d.activeElement.getAttribute('aria-label') || ''), String(d.activeElement && d.activeElement.getAttribute('aria-label')));
+  click($('[data-action="add-step"]')); await wait(60);
+  ok('toolbar Add step appends at end', stored().steps.length === 6 && steps().length === 6 && stored().steps[4].id === ids1[4]);
+  integrity('6 steps after adds');
+  const dimIds0 = stored().wheel.dimensions.map(x => x.id);
+  click($('[data-action="add-dimension"]')); await wait(60);
+  ok('toolbar Add dimension appends', stored().wheel.dimensions.length === 7 && dims().length === 7 && dimIds0.every((id, i) => stored().wheel.dimensions[i].id === id));
+  const legendAdd = $$('button').filter(b => /Add dimension/.test(b.textContent) && b.getAttribute('data-action') !== 'add-dimension')[0];
+  if (legendAdd) { click(legendAdd); await wait(60); }
+  ok('legend Add dimension button adds', !!legendAdd && dims().length === 8 && stored().wheel.dimensions.length === 8);
+  ok('centre count follows (8)', $('.mf-wheel-value').placeholder === '8' && $('.mf-wheel-value').value === '', $('.mf-wheel-value').placeholder);
+  integrity('8 dimensions');
+
+  // ---- Undo lifetime ----
+  click(steps()[5].querySelector('[data-action="delete"]')); await wait(60);
+  ok('delete shows Undo toast', !!$('.mfe-toast') && /Undo/.test($('.mfe-toast').textContent) && steps().length === 5);
+  await wait(8600);
+  ok('Undo toast expires after ~8 s (deletion stays)', !$('.mfe-toast') && steps().length === 5 && stored().steps.length === 5);
+
+  // ---- Native colour picker + HEX validation ----
+  const picker = $('input[type=color][aria-label="Pick theme colour"]');
+  type(picker, '#2e7d4f'); await wait(60);
+  ok('native colour picker applies base colour', storedA().base === '#2e7d4f' && $('.te-hex').value.toLowerCase().includes('2e7d4f') && mfVar('--mf-background') !== defBg, JSON.stringify(storedA()));
+  const hx = $('.te-hex'); type(hx, '#zzzzzz'); await wait(40);
+  ok('invalid HEX is rejected and flagged', storedA().base === '#2e7d4f' && hx.classList.contains('is-invalid'));
+  hx.blur(); await wait(30);
+
+  // ---- Reset appearance (content untouched) ----
+  const seg = (label, text) => [...$(`[role=group][aria-label="${label}"]`).querySelectorAll('button')].find(b => b.textContent === text);
+  click(seg('Text size', 'XL')); click(seg('Step text position', 'Above')); click(seg('Dimension nodes', 'Icons')); await wait(60);
+  const ov = $$('input[type=color]').find(i => /^Panel/.test(i.getAttribute('aria-label') || ''));
+  if (ov) { type(ov, '#f5f5f5'); await wait(40); }
+  ok('appearance changed before reset (incl. panel override)', storedA().typography.scale !== 1 && storedA().placement === 'above' && !!ov && Object.keys(storedA().overrides).length > 0, JSON.stringify(storedA()));
+  click($$('button').find(b => b.textContent.trim() === 'Reset appearance')); await wait(80);
+  const a = storedA();
+  ok('Reset appearance restores default look', (!a || (a.base === '#1f4670' && Object.keys(a.overrides).length === 0 && a.typography.scale === 1 && a.placement === 'alternate' && a.dimensionContent === 'number')) && mfVar('--mf-background') === defBg, JSON.stringify(a));
+  ok('Reset appearance keeps content', stored().subtitle === 'Audit subtitle' && stored().steps.length === 5 && stored().wheel.dimensions.length === 8);
+
+  // ---- Persistence after refresh of everything above ----
+  click(seg('Text size', 'L')); await wait(40);
+  const snap = JSON.stringify(stored()), snapA = JSON.stringify(storedA());
+  await load(1400);
+  ok('after refresh: new content persisted', JSON.stringify(stored()) === snap && steps().length === 5 && dims().length === 8 && field('Subtitle').value === 'Audit subtitle' && field('Result title').value === 'Audit result');
+  ok('after refresh: appearance persisted', JSON.stringify(storedA()) === snapA && storedA().typography.scale > 1);
+  integrity('after refresh');
+
+  // ---- Narrow screen editing ----
+  await load(390);
+  ok('390px: vertical layout, still editable', mode() === 'vertical' && !!field('Infographic title'));
+  integrity('390px');
+
+  ok('no console errors / exceptions', errors.length === 0, JSON.stringify(errors.slice(0, 5)));
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
+  document.getElementById('out').textContent = 'SUMMARY ' + R.filter(x => x.startsWith('PASS')).length + '/' + R.length + ' passed\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n') + '\n\n' + notes.join('\n');
+}
+run().catch(e => { document.getElementById('out').textContent = 'CRASH ' + e.stack + '\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n'); });
+</script></body></html>

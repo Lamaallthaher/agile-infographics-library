@@ -16,6 +16,8 @@
     "build:packages": "npm run build -w @agile-infographics/core && npm run build -w @agile-infographics/tom-wheel && npm run build -w @agile-infographics/methodology-flow",
     "build:gallery": "npm run build -w @agile-infographics/gallery",
     "build": "npm run typecheck && npm run build:packages && npm run build:gallery",
+    "test": "npm run build:gallery && npm run test:browser",
+    "test:browser": "node tests/browser/run.mjs",
     "preview": "npm run preview -w @agile-infographics/gallery"
   },
   "devDependencies": {

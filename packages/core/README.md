@@ -1,8 +1,18 @@
 # @agile-infographics/core
 
-Generic building blocks shared by the Agile Infographics components. You
-normally get it automatically as a dependency of a component package, but it
-can also be used on its own.
+Generic building blocks shared by the Agile Infographics components. Each
+component package depends on it and re-exports what its clients need
+(`generatePalette`, `THEME_PRESETS`, icon keys and so on), so a client project
+using a component normally never imports this package.
+
+To import from `@agile-infographics/core` directly, add it to your own
+dependencies. Relying on the copy a component installs works with npm's flat
+`node_modules`, but fails with pnpm or Yarn PnP:
+
+```bash
+npm install @agile-infographics/core     # npm
+pnpm add @agile-infographics/core        # pnpm
+```
 
 It contains no component-specific code, class names or CSS variables.
 

@@ -9,13 +9,23 @@ Target Operating Model.
 - Content is saved in the browser (Local Storage).
 
 This package is independent of every other component in the Agile Infographics
-Library. Its only library dependency is `@agile-infographics/core`, installed
-automatically.
+Library. Its only library dependency is `@agile-infographics/core`, which is
+installed automatically. Everything a client needs, including the theme
+generator (`generatePalette`, `useThemeColor`, `THEME_PRESETS`) and the icon
+keys, is exported from `@agile-infographics/tom-wheel` itself.
+
+> **Import only from `@agile-infographics/tom-wheel`.** Don't import
+> `@agile-infographics/core` directly: it is a dependency of this package, not
+> of your project, so a strict package manager (pnpm, Yarn PnP) won't let your
+> code reach it. If you do want core's other utilities, install it yourself
+> (`npm install @agile-infographics/core`) with the same version range this
+> package uses.
 
 ## Install
 
 ```bash
-npm install @agile-infographics/tom-wheel
+npm install @agile-infographics/tom-wheel     # npm
+pnpm add @agile-infographics/tom-wheel        # pnpm
 ```
 
 - Peer dependencies: `react` and `react-dom` 19.
@@ -24,8 +34,7 @@ npm install @agile-infographics/tom-wheel
 ## Editable wheel
 
 ```tsx
-import { generatePalette, useThemeColor } from "@agile-infographics/core";
-import { TomWheelEditor, DEFAULT_TOM, paletteToWheelTheme } from "@agile-infographics/tom-wheel";
+import { TomWheelEditor, DEFAULT_TOM, generatePalette, paletteToWheelTheme, useThemeColor } from "@agile-infographics/tom-wheel";
 
 // Fixed theme:
 <TomWheelEditor defaultData={DEFAULT_TOM} storageKey="client-y.tom" theme={paletteToWheelTheme(generatePalette("#2e9d4f"))} />;
