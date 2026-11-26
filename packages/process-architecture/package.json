@@ -1,0 +1,42 @@
+{
+  "name": "@agile-infographics/process-architecture",
+  "version": "0.1.0",
+  "description": "Editable Process Architecture Map for React: a four-level process hierarchy (L0 value chains, L1 process groups, L2 processes, L3 activities) with drill-down navigation.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lamaallthaher/agile-infographics-library.git",
+    "directory": "packages/process-architecture"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": {
+      "@agile-infographics/source": "./src/index.ts",
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./renderer": {
+      "@agile-infographics/source": "./src/renderer/index.ts",
+      "types": "./dist/types/renderer/index.d.ts",
+      "default": "./dist/renderer.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json && node ../../scripts/strip-css-imports.mjs dist/types"
+  },
+  "dependencies": {
+    "@agile-infographics/core": "^0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

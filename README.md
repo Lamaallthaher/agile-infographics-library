@@ -10,6 +10,7 @@ bundles the others or the development gallery.
 | 01 | **TOM Wheel** | [`@agile-infographics/tom-wheel`](packages/tom-wheel/README.md) | A circular Target Operating Model wheel with any number of components (3–12), a details panel and a component list. |
 | 02 | **Methodology Flow & Assessment Wheel** | [`@agile-infographics/methodology-flow`](packages/methodology-flow/README.md) | A connected sequence of methodology steps (2–8) leading to a circular set of assessment dimensions (3–12). |
 | 03 | **Ecosystem & Interfaces Map** | [`@agile-infographics/ecosystem-map`](packages/ecosystem-map/README.md) | A central entity connected to any number of surrounding groups (1–12), each with its own items (0–20). It has a display-only mode and an editor. |
+| 04 | **Process Architecture Map** | [`@agile-infographics/process-architecture`](packages/process-architecture/README.md) | A four-level process hierarchy: value chains (L0), process groups (L1), processes (L2) and activities (L3), with drill-down navigation. |
 | — | Shared building blocks | [`@agile-infographics/core`](packages/core/README.md) | Theme generator, contrast helpers, icon registry, inline-editing primitives, storage helpers. Installed automatically with any component, which re-exports what clients need. |
 
 Every component shares the same principles:
@@ -43,6 +44,7 @@ npm run dev      # → http://localhost:5173
 | http://localhost:5173/#/tom-wheel | 01 · TOM Wheel (default) |
 | http://localhost:5173/#/methodology-flow | 02 · Methodology Flow & Assessment Wheel |
 | http://localhost:5173/#/ecosystem-map | 03 · Ecosystem & Interfaces Map (examples: `/it-quality`, `/digital-transformation`, `/operating-model`) |
+| http://localhost:5173/#/process-architecture | 04 · Process Architecture Map |
 
 | Command | What it does |
 |---|---|
@@ -86,10 +88,15 @@ agile-infographics-library/
 │   │       ├── renderer/            # layout engine, theme mapping, MethodologyFlow (read-only)
 │   │       ├── editor/              # data model, defaults, storage, hooks, editor, appearance panel
 │   │       └── index.ts             # public entry
-│   └── ecosystem-map/               # @agile-infographics/ecosystem-map: component 03
+│   ├── ecosystem-map/               # @agile-infographics/ecosystem-map: component 03
+│   │   └── src/
+│   │       ├── renderer/            # data model + validation, layout engine, theme, EcosystemMap (display)
+│   │       ├── editor/              # state hooks, editor, group inspector, appearance and data panels
+│   │       └── index.ts             # public entry
+│   └── process-architecture/        # @agile-infographics/process-architecture: component 04
 │       └── src/
-│           ├── renderer/            # data model + validation, layout engine, theme, EcosystemMap (display)
-│           ├── editor/              # state hooks, editor, group inspector, appearance and data panels
+│           ├── renderer/            # four-level data model + validation, hierarchy helpers, theme, ProcessArchitecture
+│           ├── editor/              # state hooks, editor, inspector, appearance and data panels
 │           └── index.ts             # public entry
 └── apps/
     └── gallery/                     # private development gallery (never published)
@@ -143,6 +150,7 @@ import { MethodologyFlowEditor, DEFAULT_METHODOLOGY } from "@agile-infographics/
   [tom-wheel](packages/tom-wheel/README.md),
   [methodology-flow](packages/methodology-flow/README.md),
   [ecosystem-map](packages/ecosystem-map/README.md),
+  [process-architecture](packages/process-architecture/README.md),
   [core](packages/core/README.md).
 
 ### Distribution
@@ -379,6 +387,63 @@ model, props and appearance options.
 
 ---
 
+## Component 04 — Process Architecture Map
+
+A four-level process hierarchy as a consulting-style infographic, in three
+views chosen with a numbered tab bar:
+
+- **Structure & levels:** a pyramid of the levels with dashed label pills,
+  arrows and descriptions with bold key phrases. Levels are grouped into scope
+  bands: the first is outlined in a dashed accent, later ones are shaded, and
+  each band has a callout card.
+- **Process groups by stage:** the process house with drill-down.
+- **Full architecture:** everything at once, numbered.
+
+The levels are shown as:
+
+| Level | Name | Shown as |
+|---|---|---|
+| L0 | Value chain | A banner with owner, status, tags and totals. Several value chains appear as tabs. |
+| L1 | Process group | A "process house": management groups on top, core groups as a left-to-right chevron flow, support groups below. |
+| L2 | Process | Cards for the selected group. |
+| L3 | Activity | A numbered flow (or timeline) for the selected process. |
+
+- **Content:** all content comes from data, at every level: title,
+  description, owner or responsible role, status, tags, code and a validated
+  link. Groups also have a category, icon and colour. Numbers (1, 1.2, 1.2.3)
+  are generated automatically.
+- **Navigation:**
+  - Select a group, then a process, to drill down. A breadcrumb, **Up one
+    level** and <kbd>Esc</kbd> lead back, and arrow keys move between items of
+    a level.
+  - The selected path's levels are shown one under another, or one level at a
+    time.
+  - Groups expand to list their processes on the overview, and process cards
+    expand to preview their activities.
+- **Display and editing:**
+  - `ProcessArchitecture` (`/renderer`) is display only.
+  - `ProcessArchitectureEditor` edits every level in place: add, insert,
+    reorder, and delete with Undo. It also has an inspector for the selected
+    node, an Appearance panel, JSON import / export and a `readOnly` mode.
+- **Gallery:** a fictional IT service organisation with two value chains
+  (8 + 3 groups, 20 processes, 55 activities), with an Edit / Display toggle.
+
+```tsx
+import { ProcessArchitectureEditor, ProcessArchitecture } from "@agile-infographics/process-architecture";
+
+<ProcessArchitectureEditor defaultData={myArchitecture} storageKey="project-d.process-architecture" />
+<ProcessArchitecture data={myArchitecture} appearance={{ scheme: "light", navigation: "focus" }} />
+```
+
+**Storage** (gallery):
+- content: `agile-infographics.process-architecture.v1`
+- appearance: `agile-infographics.process-architecture.v1.appearance`
+
+See the [package README](packages/process-architecture/README.md) for the
+full data model, props and appearance options.
+
+---
+
 ## Smart theme customisation (shared)
 
 `packages/core/src/theme/` turns one base colour into a complete, semantic
@@ -399,9 +464,9 @@ palette that any component can map onto its own CSS variables.
    chosen automatically by `readableOn()`.
 5. **Map to the component.** Each component has an adapter:
    `paletteToWheelTheme()` (component 01), `paletteToMethodologyTheme()`
-   (component 02) and `paletteToEcosystemTheme()` (component 03, with a
-   secondary colour and dark or light schemes). Components contain no theme
-   colours.
+   (component 02), `paletteToEcosystemTheme()` (component 03) and
+   `paletteToProcessTheme()` (component 04); the last two add a secondary
+   colour and dark or light schemes. Components contain no theme colours.
 
 ### Methodology Flow appearance
 
@@ -491,6 +556,13 @@ palette that any component can map onto its own CSS variables.
   - The automatic group colour ramp is subtle when the primary and secondary
     hues are close. Choose a secondary colour or per-group colours for more
     contrast between groups.
+- Process Architecture Map:
+  - Up to 6 value chains, 16 groups per chain, 24 processes per group and 30
+    activities per process.
+  - Processes and activities belong to exactly one parent. Links between
+    processes (hand-offs across groups) are not drawn.
+  - Activities are shown as an ordered sequence, not as a branching
+    flowchart.
 - Some manual colour overrides can reduce contrast. They are flagged in the
   Appearance panel, not blocked.
 - The browser test suites (`npm test`) run locally and need an installed

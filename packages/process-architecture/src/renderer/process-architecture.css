@@ -1,0 +1,1352 @@
+/* ==========================================================================
+   Process Architecture Map — Agile Infographics Library
+   Colours come only from --pa-* variables (see theme.ts). Sizes are in em, so
+   the map scales with --pa-scale. Responsive rules use container queries on
+   the component itself, so it adapts to the space it is given, not the window.
+   ========================================================================== */
+
+.pa {
+  container: pa / inline-size;
+  position: relative;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-radius: calc(var(--pa-radius, 0.8rem) + 0.45rem);
+  background: var(--pa-background);
+  color: var(--pa-text);
+  font-family: var(--pa-font);
+  font-size: calc(1rem * var(--pa-scale, 1));
+  -webkit-font-smoothing: antialiased;
+}
+
+.pa *,
+.pa *::before,
+.pa *::after {
+  box-sizing: border-box;
+}
+
+.pa-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pa-invalid {
+  border: 1px dashed currentColor;
+}
+
+.pa :is(h2, h3, h4, p, ol, ul, dl, dd) {
+  margin: 0;
+}
+
+.pa :is(.pa-select, .pa-pill, .pa-crumb, .pa-up, .pa-expand, .pa-chain-tab, .pa-link):focus-visible {
+  outline: 2px solid var(--pa-focus);
+  outline-offset: 2px;
+}
+
+/* ---------- Heading (inside the panel): kicker, view tabs, title | view, description ---------- */
+.pa-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85em;
+  min-width: 0;
+}
+
+.pa-kicker {
+  color: var(--pa-accent);
+  font-size: 0.78em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pa-views {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35em;
+  padding: 0.3em;
+  border: 1px solid var(--pa-panel-border);
+  border-radius: 0.75em;
+}
+
+.pa-view-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 0;
+  padding: 0.55em 0.75em;
+  border: 1px solid transparent;
+  border-radius: 0.55em;
+  background: transparent;
+  color: var(--pa-text);
+  font: inherit;
+  font-size: 0.9em;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pa-view-tab:hover {
+  border-color: var(--pa-panel-border);
+}
+
+.pa-view-tab[aria-selected="true"] {
+  border-color: var(--pa-selected);
+  background: color-mix(in srgb, var(--pa-level3) 55%, var(--pa-panel));
+  color: var(--pa-heading);
+}
+
+.pa-view-no {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.75em;
+  height: 1.75em;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pa-text) 12%, transparent);
+  font-size: 0.85em;
+  font-weight: 800;
+}
+
+.pa-view-tab[aria-selected="true"] .pa-view-no {
+  background: var(--pa-selected);
+  color: var(--pa-panel);
+}
+
+.pa-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5em;
+  min-width: 0;
+}
+
+.pa-title,
+.pa-title-view {
+  color: var(--pa-heading-on-bg);
+  font-size: 1.45em;
+  font-weight: calc(var(--pa-title-weight, 700) - 200);
+  line-height: 1.25;
+}
+
+.pa-title-view::before {
+  content: "| ";
+}
+
+/* The editable title hugs its text so "| view" stays right after it. */
+.pa.is-editable .pa-title-row .pa-title {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  field-sizing: content;
+}
+
+.pa-subtitle {
+  max-width: 68rem;
+  color: var(--pa-heading-on-bg);
+  font-size: 0.95em;
+  line-height: 1.65;
+  opacity: 0.92;
+}
+
+.pa-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--pa-gap) + 0.4em);
+  min-width: 0;
+}
+
+/* ---------- "Structure & levels": pyramid, level pills, arrows, scope bands ---------- */
+.pa-structure {
+  display: grid;
+  min-width: 0;
+}
+
+.pa-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11em, 15.5em);
+  align-items: center;
+  gap: 1.2em 1.6em;
+  padding: 1.1em 1.3em 1.1em 0.9em;
+  border-radius: 0.35em;
+}
+
+/* The first scope is outlined with a dashed accent; later bands sit on a shaded strip below it. */
+.pa-band:first-child[data-scoped] {
+  border: 1.5px dashed var(--pa-scope);
+}
+
+.pa-band:not(:first-child) {
+  border-radius: 0 0 0.6em 0.6em;
+  background: var(--pa-detail-band);
+}
+
+.pa-band-rows {
+  display: grid;
+  gap: 0.75em;
+  min-width: 0;
+}
+
+.pa-srow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: 1.4em;
+  min-width: 0;
+}
+
+.pa-shape-cell {
+  min-width: 0;
+}
+
+.pa-shape {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 4.4em;
+  padding: 0 1.5em;
+  border: 0;
+  font: inherit;
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+button.pa-shape {
+  cursor: pointer;
+}
+
+button.pa-shape:hover {
+  filter: brightness(1.07);
+}
+
+button.pa-shape:focus-visible {
+  outline: 2px solid var(--pa-focus);
+  outline-offset: 3px;
+}
+
+/* The apex triangle carries its name near the base, where there is room. */
+.pa-srow[data-level="0"] .pa-shape {
+  align-items: end;
+  padding-bottom: 0.55em;
+}
+
+.pa-srow-text {
+  display: grid;
+  grid-template-columns: 7.2em 3.4em minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9em;
+  min-width: 0;
+}
+
+.pa-pill-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.pa-level-pill {
+  display: inline-block;
+  padding: 0.35em 0.85em;
+  border: 1.5px dashed color-mix(in srgb, var(--pa-heading) 55%, transparent);
+  border-radius: 0.45em;
+  color: var(--pa-heading);
+  font-size: 0.95em;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pa-arrow {
+  position: relative;
+  height: 2px;
+  background: var(--pa-selected);
+}
+
+.pa-arrow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -1px;
+  width: 0.55em;
+  height: 0.55em;
+  border-top: 2px solid var(--pa-selected);
+  border-right: 2px solid var(--pa-selected);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.pa-level-text {
+  color: var(--pa-heading);
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+.pa-level-text strong {
+  font-weight: 800;
+}
+
+.pa-callout {
+  display: grid;
+  align-self: center;
+  gap: 0.55em;
+  min-width: 0;
+  padding: 0.75em 0.8em 0.9em;
+  border-radius: 0.6em;
+  background: color-mix(in srgb, var(--pa-panel) 70%, #000);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.pa[data-scheme="light"] .pa-callout {
+  background: var(--pa-surface);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Chip colours are set inline from the theme, with a readable label colour. */
+.pa-callout-chip {
+  padding: 0.35em 0.6em;
+  border-radius: 0.3em;
+}
+
+.pa-band:not(:first-child) .pa-callout-chip {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pa-heading) 18%, transparent);
+}
+
+.pa-callout-title {
+  font-size: 0.85em;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.pa-callout-text {
+  color: var(--pa-heading);
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+/* ---------- "Full architecture": every group with its processes and activities ---------- */
+.pa-full {
+  display: grid;
+  gap: var(--pa-gap);
+}
+
+.pa-full-row {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  gap: var(--pa-gap);
+}
+
+.pa-full-row-label {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.6em 0.5em 0 0;
+  border-right: 2px solid var(--pa-panel-border);
+  color: var(--pa-text-muted);
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.pa-full-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr));
+  gap: 0.6em;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-full-group {
+  display: grid;
+  align-content: start;
+  gap: 0.45em;
+  min-width: 0;
+  padding: 0.65em 0.75em 0.8em;
+  border: 1px solid var(--pa-surface-border);
+  border-top: 4px solid var(--node);
+  border-radius: calc(var(--pa-radius) * 0.6);
+  background: var(--pa-surface);
+}
+
+.pa-full-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  color: var(--pa-heading);
+  font-size: 0.92em;
+  font-weight: var(--pa-title-weight, 700);
+  line-height: 1.3;
+}
+
+.pa-full-processes {
+  display: grid;
+  gap: 0.4em;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-full-process-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  width: 100%;
+  padding: 0.25em 0.35em;
+  border: 0;
+  border-radius: 0.3em;
+  background: color-mix(in srgb, var(--node) 16%, transparent);
+  color: var(--pa-text);
+  font: inherit;
+  font-size: 0.82em;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pa-full-process-title:hover {
+  background: color-mix(in srgb, var(--node) 30%, transparent);
+}
+
+.pa-full-process-title:focus-visible {
+  outline: 2px solid var(--pa-focus);
+  outline-offset: 1px;
+}
+
+.pa-full-activities {
+  display: grid;
+  gap: 0.15em;
+  margin: 0.25em 0 0 0.45em;
+  padding: 0 0 0 0.6em;
+  border-left: 2px solid color-mix(in srgb, var(--node) 55%, transparent);
+  color: var(--pa-text-muted);
+  font-size: 0.75em;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.pa-full-activities li,
+.pa-full-group-head {
+  display: flex;
+  gap: 0.35em;
+}
+
+.pa-full-empty {
+  color: var(--pa-text-muted);
+  font-size: 0.8em;
+}
+
+/* ---------- Panel, value-chain tabs, breadcrumb ---------- */
+.pa-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--pa-gap) + 0.4em);
+  margin-top: 1.25em;
+  padding: clamp(0.85rem, 2.4vw, 1.8rem);
+  border: 1px solid var(--pa-panel-border);
+  border-radius: calc(var(--pa-radius, 0.8rem) + 0.3rem);
+  background: var(--pa-panel);
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.pa > .pa-panel:first-child {
+  margin-top: 0;
+}
+
+.pa-panel > .pa-head + .pa-view {
+  margin-top: 0.4em;
+}
+
+.pa-chains {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em 0.75em;
+}
+
+.pa-chain-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pa-chain-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.4em 0.9em 0.4em 0.45em;
+  border: 1px solid var(--pa-surface-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pa-text);
+  font: inherit;
+  font-size: 0.88em;
+  font-weight: 650;
+  text-align: left;
+  max-width: 100%;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.pa-chain-tab[aria-selected="true"] {
+  border-color: var(--pa-l0);
+  background: var(--pa-l0);
+  color: var(--pa-l0-text);
+}
+
+.pa-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em 1em;
+}
+
+.pa-crumbs ol {
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-crumbs li {
+  display: flex;
+  align-items: center;
+  gap: 0.25em;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.pa-crumbs li + li::before {
+  content: "›";
+  color: var(--pa-text-muted);
+  font-size: 1.1em;
+}
+
+.pa-crumb {
+  max-width: min(22em, 100%);
+  overflow: hidden;
+  padding: 0.25em 0.55em;
+  border: 0;
+  border-radius: 0.4em;
+  background: transparent;
+  color: var(--pa-accent);
+  font: inherit;
+  font-size: 0.86em;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+button.pa-crumb:hover {
+  text-decoration: underline;
+}
+
+.pa-crumb.is-current {
+  color: var(--pa-heading);
+  cursor: default;
+}
+
+.pa-crumb-level {
+  margin-right: 0.2em;
+  color: var(--pa-text-muted);
+  font-size: 0.85em;
+  font-weight: 800;
+}
+
+.pa-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.3em 0.75em;
+  border: 1px solid var(--pa-surface-border);
+  border-radius: 999px;
+  background: var(--pa-surface);
+  color: var(--pa-text);
+  font: inherit;
+  font-size: 0.82em;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+/* ---------- Levels ---------- */
+.pa-levels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--pa-gap) * 2);
+}
+
+.pa-level {
+  display: grid;
+  gap: var(--pa-gap);
+  min-width: 0;
+}
+
+/* Cascade: each deeper level hangs from the one above with a connector. */
+.pa[data-navigation="cascade"] .pa-level + .pa-level {
+  position: relative;
+  padding-top: calc(var(--pa-gap) * 0.5);
+  border-top: 2px solid var(--node, var(--pa-connector));
+}
+
+.pa[data-navigation="cascade"] .pa-level + .pa-level::before {
+  content: "";
+  position: absolute;
+  top: -0.75em;
+  left: 1.5em;
+  width: 1.1em;
+  height: 1.1em;
+  border-top: 2px solid var(--node, var(--pa-connector));
+  border-left: 2px solid var(--node, var(--pa-connector));
+  background: var(--pa-panel);
+  transform: rotate(45deg);
+}
+
+.pa-level-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.1em;
+  padding: 0.05em 0.4em;
+  border-radius: 0.35em;
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+}
+
+/* Four distinct level markers: filled (L0), coloured (L1), outlined (L2), dotted outline (L3). */
+.pa-level-badge[data-level="0"] {
+  background: var(--pa-l0-text);
+  color: var(--pa-l0);
+}
+
+.pa-chain-tab[aria-selected="false"] .pa-level-badge[data-level="0"],
+.pa-level-head .pa-level-badge[data-level="0"] {
+  background: var(--pa-l0);
+  color: var(--pa-l0-text);
+}
+
+.pa-level-badge[data-level="1"] {
+  background: var(--node, var(--pa-core-from));
+  color: var(--pa-l0-text);
+  box-shadow: inset 0 0 0 1px var(--pa-surface-border);
+}
+
+.pa-level-badge[data-level="2"] {
+  border: 1.5px solid var(--pa-accent);
+  color: var(--pa-accent);
+}
+
+.pa-level-badge[data-level="3"] {
+  border: 1.5px dashed var(--pa-text-muted);
+  color: var(--pa-text-muted);
+}
+
+.pa-level-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5em;
+  color: var(--pa-text-muted);
+  font-size: 0.78em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pa-code {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
+}
+
+.pa-level-head {
+  display: grid;
+  gap: 0.35em;
+  padding: 0.25em 0 0.25em 0.9em;
+  border-left: 4px solid var(--node, var(--pa-selected));
+}
+
+.pa-level-title {
+  color: var(--pa-heading);
+  font-size: 1.3em;
+  font-weight: var(--pa-title-weight, 700);
+  line-height: 1.25;
+}
+
+.pa-level-desc,
+.pa-card-desc {
+  max-width: 62em;
+  color: var(--pa-text-muted);
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+
+.pa-level-detail,
+.pa-count {
+  color: var(--pa-text-muted);
+  font-size: 0.8em;
+  font-weight: 650;
+}
+
+/* ---------- L0 value chain banner ---------- */
+.pa-l0 {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em 2em;
+  padding: 1.1em 1.4em;
+  border-radius: var(--pa-radius);
+  border-top: 4px solid var(--pa-selected);
+  background: var(--pa-l0);
+  color: var(--pa-l0-text);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.18);
+}
+
+.pa-l0 .pa-level-kicker {
+  color: var(--pa-l0-muted);
+}
+
+.pa-l0-main {
+  display: grid;
+  flex: 1 1 22em;
+  gap: 0.3em;
+  min-width: 0;
+}
+
+.pa-l0-title {
+  font-size: 1.45em;
+  font-weight: var(--pa-title-weight, 700);
+  line-height: 1.2;
+}
+
+.pa-l0-desc {
+  max-width: 60em;
+  color: var(--pa-l0-muted);
+  font-size: 0.92em;
+  line-height: 1.5;
+}
+
+.pa-stats {
+  display: flex;
+  gap: 1.4em;
+}
+
+.pa-stats div {
+  display: grid;
+  justify-items: start;
+}
+
+.pa-stats dt {
+  order: 2;
+  color: var(--pa-l0-muted);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pa-stats dd {
+  font-size: 1.6em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* ---------- L1 process house ---------- */
+.pa-house {
+  display: grid;
+  gap: var(--pa-gap);
+}
+
+.pa-row {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--pa-gap);
+}
+
+.pa-row-label {
+  display: flex;
+  align-items: center;
+  padding-right: 0.5em;
+  border-right: 2px solid var(--pa-panel-border);
+  color: var(--pa-text-muted);
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.pa-row-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pa-gap);
+  padding: 0;
+  list-style: none;
+}
+
+/* Core processes are the value flow: one row of chevrons pointing right. */
+.pa-row[data-category="core"] .pa-row-list {
+  flex-wrap: nowrap;
+  gap: 0.3em;
+}
+
+.pa-group {
+  position: relative;
+  z-index: 0;
+  display: grid;
+  flex: 1 1 12em;
+  align-content: start;
+  gap: 0.55em;
+  min-width: 0;
+  padding: 0.85em 1em;
+  color: var(--node-fg);
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+/* The shape is drawn behind the content, so focus rings and text are never clipped. */
+.pa-group::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--pa-radius);
+  background: var(--node);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16);
+}
+
+.pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group {
+  flex: 1 1 0;
+  padding-inline: 1.9em 1.6em;
+}
+
+.pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group::before {
+  border-radius: 0;
+  clip-path: polygon(0 0, calc(100% - 1.2em) 0, 100% 50%, calc(100% - 1.2em) 100%, 0 100%, 1.2em 50%);
+}
+
+.pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group:first-child {
+  padding-left: 1.1em;
+}
+
+.pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group:first-child::before {
+  clip-path: polygon(0 0, calc(100% - 1.2em) 0, 100% 50%, calc(100% - 1.2em) 100%, 0 100%);
+}
+
+.pa-group.is-selected {
+  transform: translateY(-2px);
+}
+
+.pa-group.is-selected::before {
+  box-shadow: 0 0 0 3px var(--pa-selected), 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* A clipped chevron cannot carry a ring: selected groups of every shape also get an underline bar. */
+.pa-group.is-selected::after {
+  content: "";
+  position: absolute;
+  right: 1.2em;
+  bottom: -0.5em;
+  left: 1.2em;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--pa-selected);
+}
+
+.pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group.is-selected::before {
+  box-shadow: none;
+  filter: brightness(1.1) saturate(1.1);
+}
+
+.pa-group.is-dimmed {
+  opacity: 0.6;
+}
+
+.pa-group-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+  min-width: 0;
+}
+
+.pa-group-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--node-fg) 16%, transparent);
+}
+
+.pa-group-icon svg {
+  width: 1.15em;
+  height: 1.15em;
+}
+
+.pa-group-titles {
+  display: grid;
+  gap: 0.1em;
+  min-width: 0;
+}
+
+.pa-group .pa-code {
+  font-size: 0.78em;
+}
+
+.pa-group-title {
+  font-size: 1em;
+  font-weight: var(--pa-title-weight, 700);
+  line-height: 1.3;
+}
+
+.pa-group-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+
+.pa-group .pa-count {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.pa-group-foot .pa-expand {
+  display: grid;
+  place-items: center;
+  width: 1.7em;
+  height: 1.7em;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--node-fg) 45%, transparent);
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pa-pills {
+  display: grid;
+  gap: 0.3em;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45em;
+  width: 100%;
+  padding: 0.35em 0.55em;
+  border: 1px solid transparent;
+  border-radius: calc(var(--pa-radius) * 0.6);
+  background: color-mix(in srgb, var(--node-fg) 13%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: 0.82em;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pa-pill:hover,
+.pa-pill.is-selected {
+  border-color: color-mix(in srgb, var(--node-fg) 60%, transparent);
+}
+
+.pa-pill .pa-code {
+  flex: none;
+  font-size: 0.9em;
+}
+
+.pa-row-add,
+.pa-cards-add,
+.pa-steps-add {
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+
+/* ---------- Selection buttons (display mode) ---------- */
+.pa-select {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The title button's hit area covers its whole node. */
+.pa-select::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+/* Display mode: clicks on a node's text reach its selection button; real controls stay on top. */
+.pa:not(.is-editable) :is(.pa-group, .pa-card) :is(.pa-card-desc, .pa-meta, .pa-card-head, .pa-step-head, .pa-count, .pa-mini, .pa-group-icon, .pa-code) {
+  pointer-events: none;
+}
+
+.pa :is(.pa-expand, .pa-pills, .pa-pill, .pa-link) {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+}
+
+/* ---------- L2 process cards and L3 steps ---------- */
+.pa-cards,
+.pa-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16em), 1fr));
+  gap: var(--pa-gap);
+  padding: 0;
+  list-style: none;
+}
+
+.pa-card {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.45em;
+  min-width: 0;
+  padding: 0.85em 1em 0.95em;
+  border: 1px solid var(--pa-surface-border);
+  border-radius: var(--pa-radius);
+  background: var(--pa-surface);
+  color: var(--pa-text);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
+  transition: opacity 0.2s ease, border-color 0.15s ease;
+}
+
+.pa[data-card-style="accent"] .pa-card {
+  border-left: 4px solid var(--node, var(--pa-selected));
+}
+
+.pa[data-card-style="outline"] .pa-card {
+  border: 1.5px solid var(--node, var(--pa-surface-border));
+  background: transparent;
+  box-shadow: none;
+}
+
+.pa-card.is-selected {
+  border-color: var(--pa-selected);
+  box-shadow: 0 0 0 2px var(--pa-selected), 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.pa-card.is-dimmed {
+  opacity: 0.62;
+}
+
+.pa-card-head,
+.pa-step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45em;
+  color: var(--pa-text-muted);
+  font-size: 0.82em;
+}
+
+.pa-card-title {
+  color: var(--pa-heading);
+  font-size: 1em;
+  font-weight: var(--pa-title-weight, 700);
+  line-height: 1.3;
+}
+
+.pa-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4em;
+  margin-top: 0.15em;
+}
+
+.pa-expand-text {
+  padding: 0.1em 0.2em;
+  border: 0;
+  background: transparent;
+  color: var(--pa-accent);
+  font: inherit;
+  font-size: 0.8em;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pa-expand-text:hover {
+  text-decoration: underline;
+}
+
+.pa-mini {
+  display: grid;
+  gap: 0.25em;
+  padding: 0.5em 0 0 0.9em;
+  border-top: 1px dashed var(--pa-surface-border);
+  color: var(--pa-text-muted);
+  font-size: 0.82em;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.pa-mini .pa-code {
+  margin-right: 0.4em;
+}
+
+/* Steps: a numbered sequence. "flow" = cards in reading order with an arrow strip; "list" = a vertical timeline. */
+.pa-steps {
+  counter-reset: none;
+}
+
+.pa-step-no {
+  display: grid;
+  place-items: center;
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  background: var(--pa-step);
+  color: var(--pa-step-text);
+  font-size: 0.95em;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.pa[data-activity-layout="flow"] .pa-step::after {
+  content: "";
+  position: absolute;
+  top: 1.35em;
+  right: -0.75em;
+  z-index: 2;
+  width: 0.7em;
+  height: 0.7em;
+  border-top: 2px solid var(--pa-step);
+  border-right: 2px solid var(--pa-step);
+  transform: rotate(45deg);
+}
+
+.pa[data-activity-layout="flow"] .pa-step:nth-last-child(1 of .pa-step)::after {
+  display: none;
+}
+
+.pa[data-activity-layout="list"] .pa-steps {
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--pa-gap) * 0.75);
+  padding-left: 1.4em;
+  border-left: 2px solid var(--pa-step);
+}
+
+.pa[data-activity-layout="list"] .pa-step-no {
+  position: absolute;
+  top: 0.75em;
+  left: calc(-1.4em - 1px - 0.95em - 1rem);
+}
+
+.pa[data-activity-layout="list"] .pa-step {
+  margin-left: 1rem;
+}
+
+/* ---------- Metadata ---------- */
+.pa-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em 0.5em;
+  font-size: 0.78em;
+}
+
+.pa-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  color: var(--pa-text-muted);
+  font-weight: 650;
+}
+
+.pa-meta.is-on-color .pa-owner,
+.pa-meta.is-on-color .pa-status,
+.pa-meta.is-on-color .pa-tag {
+  color: var(--pa-l0-muted);
+  border-color: currentColor;
+}
+
+.pa-owner svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.pa-status,
+.pa-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.05em 0.55em;
+  border: 1px solid var(--pa-surface-border);
+  border-radius: 999px;
+  color: var(--pa-text);
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.pa-tag {
+  color: var(--pa-accent);
+  border-color: currentColor;
+}
+
+/* Status is shown by shape, not colour alone: solid, hollow, half and struck-through. */
+.pa-status::before {
+  content: "";
+  width: 0.6em;
+  height: 0.6em;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+}
+
+.pa-status[data-status="active"]::before {
+  background: currentColor;
+}
+
+.pa-status[data-status="in-review"]::before {
+  background: linear-gradient(90deg, currentColor 50%, transparent 50%);
+}
+
+.pa-status[data-status="retired"] {
+  color: var(--pa-text-muted);
+  text-decoration: line-through;
+}
+
+.pa-link {
+  position: relative;
+  z-index: 2;
+  color: var(--pa-accent);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.pa-empty {
+  padding: 1em 1.2em;
+  border: 1px dashed var(--pa-surface-border);
+  border-radius: var(--pa-radius);
+  color: var(--pa-text-muted);
+  font-size: 0.9em;
+}
+
+/* ---------- Narrow containers ---------- */
+@container pa (max-width: 760px) {
+  .pa-views {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pa-band {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.9em;
+  }
+
+  .pa-srow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6em;
+  }
+
+  .pa-shape-cell {
+    width: min(100%, 26em);
+    margin-inline: auto;
+  }
+
+  .pa-srow-text {
+    grid-template-columns: auto 2.4em minmax(0, 1fr);
+  }
+
+  .pa-full-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pa-full-row-label {
+    padding: 0 0 0.2em;
+    border-right: 0;
+    border-bottom: 2px solid var(--pa-panel-border);
+  }
+
+  .pa-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pa-row-label {
+    padding: 0 0 0.2em;
+    border-right: 0;
+    border-bottom: 2px solid var(--pa-panel-border);
+  }
+
+  /* The value flow turns downwards: chevrons become stacked arrows. */
+  .pa-row[data-category="core"] .pa-row-list {
+    flex-direction: column;
+    flex-wrap: nowrap;
+  }
+
+  .pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group,
+  .pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group:first-child {
+    flex: 0 0 auto;
+    padding: 0.85em 1em 1.5em;
+  }
+
+  .pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group::before,
+  .pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group:first-child::before {
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 0.9em), 50% 100%, 0 calc(100% - 0.9em));
+  }
+
+  .pa-row-list > .pa-group {
+    flex-basis: 100%;
+  }
+
+  .pa-stats {
+    gap: 1em;
+  }
+
+  .pa[data-activity-layout="flow"] .pa-step::after {
+    display: none;
+  }
+}
+
+@container pa (max-width: 480px) {
+  .pa-srow-text {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pa-srow-text .pa-level-text {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pa-group,
+  .pa-card {
+    transition: none;
+  }
+}

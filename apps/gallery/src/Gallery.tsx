@@ -1,8 +1,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { EcosystemMapEditor } from "@agile-infographics/ecosystem-map";
 import { DEFAULT_METHODOLOGY, MethodologyFlowEditor } from "@agile-infographics/methodology-flow";
+import { ProcessArchitectureEditor } from "@agile-infographics/process-architecture";
 import { DEFAULT_TOM, TomWheelEditor, paletteToWheelTheme, useThemeColor } from "@agile-infographics/tom-wheel";
 import { ECOSYSTEM_EXAMPLES } from "./ecosystem-examples";
+import { PROCESS_EXAMPLE } from "./process-examples";
 import "./gallery.css";
 
 /** Local Storage key for the prototype's TOM wheel. Use a different key per project. */
@@ -13,12 +15,15 @@ const THEME_KEY = "agile-infographics.tom-wheel.theme.v1";
 const METHODOLOGY_KEY = "agile-infographics.methodology-flow.v1";
 /** Local Storage key per Ecosystem Map example (appearance: `${key}.appearance`). */
 const ecosystemKey = (example: string) => `agile-infographics.ecosystem-map.${example}.v1`;
+/** Local Storage key for the Process Architecture example (appearance: `${key}.appearance`). */
+const PROCESS_KEY = "agile-infographics.process-architecture.v1";
 
 /** The library's components. Each has its own page: #/<slug>. */
 const COMPONENTS = [
   { slug: "tom-wheel", label: "TOM Wheel", asset: "01" },
   { slug: "methodology-flow", label: "Methodology Flow", asset: "02" },
   { slug: "ecosystem-map", label: "Ecosystem Map", asset: "03" },
+  { slug: "process-architecture", label: "Process Architecture", asset: "04" },
 ] as const;
 type Slug = (typeof COMPONENTS)[number]["slug"];
 
@@ -87,7 +92,15 @@ export function Gallery() {
       </header>
 
       <main className="gl-main">
-        {slug === "methodology-flow" ? <MethodologyPage /> : slug === "ecosystem-map" ? <EcosystemPage /> : <TomPage />}
+        {slug === "methodology-flow" ? (
+          <MethodologyPage />
+        ) : slug === "ecosystem-map" ? (
+          <EcosystemPage />
+        ) : slug === "process-architecture" ? (
+          <ProcessPage />
+        ) : (
+          <TomPage />
+        )}
       </main>
 
       <footer className="gl-footer">
@@ -178,6 +191,49 @@ function EcosystemPage() {
           <>
             <li><kbd>Click</kbd> a group to highlight it and its connection</li>
             <li><kbd>Tab</kbd> to a group, then <kbd>←</kbd> <kbd>→</kbd> to move, <kbd>Esc</kbd> to clear</li>
+          </>
+        )}
+      </ul>
+    </>
+  );
+}
+
+/** The Process Architecture page: the four-level example, editable or in display mode. */
+function ProcessPage() {
+  const [view, setView] = useState<"edit" | "display">("edit");
+  return (
+    <>
+      <section className="gl-intro">
+        <p className="gl-kicker">Asset 04</p>
+        <h1 className="gl-title">Process Architecture Map</h1>
+        <p className="gl-lede">
+          A four-level process hierarchy: value chains (L0), process groups (L1), processes (L2) and activities (L3). Select
+          a group to see its processes, and a process to see its activities.
+        </p>
+      </section>
+      <div className="gl-switcher">
+        <p className="gl-example-desc">Sample data: a fictional IT service organisation with two value chains.</p>
+        <div className="gl-view" role="group" aria-label="Mode">
+          <button type="button" aria-pressed={view === "edit"} onClick={() => setView("edit")}>
+            Edit
+          </button>
+          <button type="button" aria-pressed={view === "display"} onClick={() => setView("display")}>
+            Display
+          </button>
+        </div>
+      </div>
+      <ProcessArchitectureEditor defaultData={PROCESS_EXAMPLE} storageKey={PROCESS_KEY} readOnly={view === "display"} />
+      <ul className="gl-tips" aria-label="How to interact">
+        {view === "edit" ? (
+          <>
+            <li><kbd>Click</kbd> a group, process or activity to select it and edit its details</li>
+            <li><kbd>Click</kbd> any title or description to edit it</li>
+            <li>Hover a node for <kbd>move</kbd> / <kbd>add</kbd> / <kbd>delete</kbd></li>
+          </>
+        ) : (
+          <>
+            <li><kbd>Click</kbd> a group, then a process, to drill down</li>
+            <li><kbd>←</kbd> <kbd>→</kbd> move between items, <kbd>Esc</kbd> goes up one level</li>
           </>
         )}
       </ul>
