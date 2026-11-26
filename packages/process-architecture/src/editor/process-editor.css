@@ -1,0 +1,537 @@
+/* ==========================================================================
+   Process Architecture editor — in-place editing on top of the renderer.
+   Colours: --pae-* / --ed-* variables derived from the active theme.
+   ========================================================================== */
+
+.pae {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  border-radius: 1.4rem;
+  background: var(--pae-bg);
+  color: var(--pae-text);
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+.pae *,
+.pae *::before,
+.pae *::after {
+  box-sizing: border-box;
+}
+
+.pae > .pa {
+  padding: clamp(0.5rem, 1.5vw, 1rem);
+}
+
+.pae-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pae svg {
+  flex: none;
+}
+
+/* ---------- Toolbar, toast ---------- */
+.pae-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1.4rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--pae-border);
+  border-radius: 0.9rem;
+  background: var(--pae-panel);
+}
+
+.pae-toolbar-end,
+.pae-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.pae-count,
+.pae-muted {
+  color: var(--pae-muted);
+  font-size: 0.84rem;
+}
+
+.pae-count strong {
+  color: var(--pae-heading);
+}
+
+.pae-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--pae-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.pae-saved.is-error {
+  color: #ffb36b;
+}
+
+.pae[data-scheme="light"] .pae-saved.is-error,
+.pae[data-scheme="light"] .te-link.is-armed {
+  color: #b45309;
+}
+
+.pae-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--pae-border);
+  border-radius: 0.65rem;
+  background: var(--pae-panel);
+  font-size: 0.86rem;
+}
+
+.pae-saved svg,
+.pae-tools svg,
+.pae-add svg,
+.pae-btn svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- Inline fields inside the map ---------- */
+.pa.is-editable :is(.pa-group, .pa-card, .pa-l0, .pa-level-head):not(:hover):not(:focus-within) .is-empty {
+  display: none;
+}
+
+.pa.is-editable .pa-group,
+.pa.is-editable .pa-card {
+  cursor: pointer;
+}
+
+.pa.is-editable .te-field {
+  color: inherit;
+}
+
+.ed-scope .pa-group .te-field:focus,
+.ed-scope .pa-l0 .te-field:focus {
+  border-color: currentColor;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.ed-scope .pa-group .te-field::placeholder,
+.ed-scope .pa-l0 .te-field::placeholder {
+  color: currentColor;
+  opacity: 0.7;
+}
+
+/* A strip at the top of each node holds its tools, so they never cover its title. */
+.pa.is-editable .pa-group,
+.pa.is-editable .pa-card,
+.pa.is-editable .pa-l0 {
+  padding-top: 2.6em;
+}
+
+.pa.is-editable[data-shape="chevron"] .pa-row[data-category="core"] .pa-group {
+  padding-top: 2.6em;
+}
+
+/* ---------- Node tools and add buttons ---------- */
+.pae-tools {
+  position: absolute;
+  top: 0.5em;
+  left: 0.6em;
+  z-index: 3;
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.pa[data-shape="chevron"] .pa-row[data-category="core"] .pa-group:not(:first-child) .pae-tools {
+  left: 1.5em;
+}
+
+:is(.pa-group, .pa-card, .pa-l0):hover > .pae-tools,
+:is(.pa-group, .pa-card, .pa-l0):focus-within > .pae-tools,
+:is(.pa-group, .pa-card).is-selected > .pae-tools,
+.pa-l0 > .pae-tools {
+  opacity: 1;
+}
+
+.pae-tools button {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--pae-border);
+  border-radius: 0.45rem;
+  background: var(--pae-surface);
+  color: var(--pae-muted);
+  cursor: pointer;
+}
+
+.pae-tools button:hover:not(:disabled) {
+  border-color: var(--pae-accent);
+  color: var(--pae-text);
+}
+
+.pae-tools button.is-danger:hover:not(:disabled) {
+  border-color: #ff9b9b;
+  color: #ff9b9b;
+}
+
+.pae[data-scheme="light"] .pae-tools button.is-danger:hover:not(:disabled) {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.pae-tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pae-tools button:focus-visible,
+.pae-add:focus-visible,
+.pae-btn:focus-visible,
+.pae-segmented button:focus-visible,
+.pae-details summary:focus-visible {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 2px;
+}
+
+.pae-add,
+.pae-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.4rem;
+  padding: 0.35rem 0.9rem;
+  border: 1px dashed var(--pae-border);
+  border-radius: 0.65rem;
+  background: transparent;
+  color: var(--pae-accent);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pa-cards-add .pae-add,
+.pa-steps-add .pae-add {
+  width: 100%;
+  min-height: 5rem;
+}
+
+.pae-add:hover:not(:disabled),
+.pae-btn:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--pae-accent);
+}
+
+.pae-add:disabled,
+.pae-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ---------- Panels ---------- */
+.pae-panel {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--pae-border);
+  border-radius: 1rem;
+  background: var(--pae-panel);
+}
+
+.pae-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+}
+
+.pae-panel-head h3 {
+  margin: 0;
+  color: var(--pae-heading);
+  font-size: 1rem;
+}
+
+.pae-name {
+  color: var(--pae-accent);
+}
+
+.pae-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.9rem 1.4rem;
+}
+
+.pae-grid-wide {
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  margin-top: 0.8rem;
+}
+
+.pae-field {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.pae-field-wide {
+  grid-column: 1 / -1;
+}
+
+.pae-field-label {
+  color: var(--pae-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pae-field .te-theme {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.pae-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pae-segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--pae-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--pae-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.pae-segmented button[aria-pressed="true"] {
+  border-color: var(--pae-accent);
+  box-shadow: inset 0 0 0 1px var(--pae-accent);
+  color: var(--pae-heading);
+}
+
+.pae-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--pae-border);
+}
+
+.pae-color {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--pae-border);
+  border-radius: 0.45rem;
+  background: var(--pae-surface);
+  cursor: pointer;
+}
+
+.pae-color:focus-within {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 1px;
+}
+
+.pae-swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--pae-border);
+}
+
+.pae-color input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pae-input,
+.pae-code {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--pae-border);
+  border-radius: 0.5rem;
+  background: var(--pae-surface);
+  color: var(--pae-text);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.pae-input:focus,
+.pae-code:focus {
+  outline: none;
+  border-color: var(--pae-accent);
+  box-shadow: 0 0 0 1px var(--pae-accent);
+}
+
+.pae-input.is-invalid {
+  border-color: #ff9b9b;
+}
+
+.pae[data-scheme="light"] .pae-input.is-invalid {
+  border-color: #b91c1c;
+}
+
+.pae[data-scheme="light"] .te-hint-error {
+  color: #b91c1c;
+}
+
+.pae-code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.pae-icon-wrap {
+  display: grid;
+  place-items: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 1px solid var(--pae-border);
+  border-radius: 50%;
+}
+
+.pae-icon-wrap.is-empty {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+.pae-icon-wrap .te-icon-picker,
+.pae-icon-button {
+  width: 100%;
+  height: 100%;
+}
+
+.pae-icon-button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--pae-text);
+}
+
+.pae-icon-button > svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.pae-details summary {
+  color: var(--pae-heading);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pae-badge {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid var(--pae-accent);
+  border-radius: 999px;
+  color: var(--pae-accent);
+  font-size: 0.7rem;
+}
+
+.pae-overrides {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 0.45rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.pae-override {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.84rem;
+}
+
+.pae-override-name {
+  flex: 1;
+}
+
+.pae-override.is-custom .pae-override-name {
+  color: var(--pae-heading);
+  font-weight: 700;
+}
+
+.pae-report {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.6rem;
+  background: var(--pae-bg);
+  color: var(--pae-text);
+  font-size: 0.82rem;
+}
+
+.pae-report:empty {
+  display: none;
+}
+
+.pae-report.has-warnings {
+  box-shadow: inset 3px 0 0 #ffb36b;
+}
+
+.pae-report.is-ok {
+  box-shadow: inset 3px 0 0 var(--pae-accent);
+}
+
+.pae-report ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.pae-report p {
+  margin: 0;
+}
+
+@media (hover: none) {
+  .pae-tools {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pae-tools {
+    transition: none;
+  }
+}

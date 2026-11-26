@@ -299,7 +299,7 @@ async function run() {
   // ---- Component switcher + TOM untouched ----
   await load(1400, '#/tom-wheel');
   ok('TOM page still renders 7-segment wheel', $$('.sw-seg').length === 7 && !$('.mf'));
-  ok('component nav present with 3 components', $$('.gl-nav-link').length === 3 && $('.gl-nav-link[aria-current=page]').textContent.includes('TOM'));
+  ok('component nav present with 4 components', $$('.gl-nav-link').length === 4 && $('.gl-nav-link[aria-current=page]').textContent.includes('TOM'));
   click($$('.gl-nav-link')[1]); w.location.hash = '#/methodology-flow'; await wait(400);
   ok('switch to Methodology Flow via nav', !!$('.mf') && !$('.sw-seg'));
 

@@ -1,0 +1,296 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<iframe id="f" style="border:0;width:1400px;height:900px"></iframe>
+<pre id="out" style="font:13px monospace;white-space:pre-wrap">waiting</pre>
+<script>
+// Process Architecture Map: data model and validation, the four-level hierarchy, drill-down
+// navigation, expand/collapse, keyboard, editing of every level (add / edit / delete / reorder,
+// Undo), inspector fields, JSON import, read-only mode, responsive layouts, persistence.
+const KEY = 'agile-infographics.process-architecture.v1', AKEY = KEY + '.appearance';
+const f = document.getElementById('f'); const R = []; const errors = []; const notes = [];
+const ok = (n, c, extra = '') => R.push((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : '  ' + extra));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let d, w;
+function load(width = 1400) {
+  f.style.width = width + 'px';
+  return new Promise(res => {
+    f.onload = async () => {
+      d = f.contentDocument; w = f.contentWindow;
+      w.addEventListener('error', e => errors.push(String(e.message)));
+      const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
+      for (let i = 0; i < 60 && !d.querySelector('.pa-group, .pa-invalid, .pa-l0'); i++) await wait(100);
+      const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
+      await wait(200); res();
+    };
+    f.src = '/index.html?' + Math.random() + '#/process-architecture';
+  });
+}
+const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+function type(el, text) {
+  el.focus();
+  const proto = el.tagName === 'TEXTAREA' ? w.HTMLTextAreaElement.prototype : w.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, text);
+  el.dispatchEvent(new w.Event('input', { bubbles: true }));
+}
+const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const key = (el, k) => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+const stored = () => JSON.parse(w.localStorage.getItem(KEY));
+const node = id => $(`[data-node="${id}"]`);
+const sel = id => node(id).querySelector('.pa-select');
+const tool = (id, action) => node(id).querySelector(`:scope > .pae-tools [data-action="${action}"]`);
+const view = name => click($$('.gl-view button').find(b => b.textContent.trim() === name));
+const crumbs = () => $$('.pa-crumbs li').map(li => li.textContent.replace(/\s+/g, ' ').trim());
+const levels = () => $$('.pa-level').map(s => s.className.match(/pa-level-(\d)/)[1]).join('');
+const chain0 = () => stored().valueChains[0];
+const overlap = (a, b, pad = 0) => a.left < b.right - pad && b.left < a.right - pad && a.top < b.bottom - pad && b.top < a.bottom - pad;
+const seg = (scope, label, text) => [...scope.querySelector(`[role=group][aria-label="${label}"]`).querySelectorAll('button')].find(b => b.textContent.trim() === text);
+const inspector = () => $('[data-inspector]');
+const inputIn = (scope, label) => [...scope.querySelectorAll('label')].find(l => l.textContent.startsWith(label))?.control;
+
+/** Layout integrity: siblings never overlap, nothing overflows the panel or the page, no clipped editable text. */
+function integrity(tag) {
+  const bad = [];
+  const groups = (sel) => $$(sel).map(e => e.getBoundingClientRect());
+  for (const [name, s] of [['groups', '.pa-group'], ['cards', '.pa-level-1 .pa-card'], ['steps', '.pa-level-2 .pa-card']]) {
+    const rs = groups(s);
+    rs.forEach((a, i) => rs.forEach((b, j) => { if (i < j && overlap(a, b, 1)) bad.push(`${name} ${i}/${j} overlap`); }));
+  }
+  const panel = $('.pa-panel').getBoundingClientRect();
+  $$('.pa-panel *').forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.right > panel.right + 1 || r.left < panel.left - 1) && !e.closest('.te-icon-menu')) bad.push('overflow ' + (e.className.baseVal ?? e.className)); });
+  $$('.pa textarea').forEach(t => { if (t.scrollHeight > t.clientHeight + 2) bad.push('clipped ' + t.getAttribute('aria-label')); });
+  const de = d.documentElement; if (de.scrollWidth > de.clientWidth + 1) bad.push(`page h-overflow ${de.scrollWidth}>${de.clientWidth}`);
+  ok(`[${tag}] no overlaps, nothing overflowing or clipped (levels ${levels()})`, bad.length === 0, JSON.stringify([...new Set(bad)].slice(0, 6)));
+  notes.push(`${tag}: levels=${levels()} groups=${$$('.pa-group').length}`);
+}
+
+async function importData(obj) {
+  const ta = $('[data-panel="data"] textarea:not([readonly])');
+  type(ta, typeof obj === 'string' ? obj : JSON.stringify(obj)); await wait(30);
+  click($('[data-action="import"]')); await wait(200);
+  return $('[data-panel="data"] .pae-report').textContent;
+}
+const gen = (chains, groups, processes, activities, extra = {}) => ({
+  title: extra.title ?? 'Generated',
+  valueChains: Array.from({ length: chains }, (_, c) => ({
+    id: `c${c}`, title: (extra.chainTitle ?? 'Chain ') + c,
+    groups: Array.from({ length: groups }, (_, g) => ({
+      id: `c${c}g${g}`, title: (extra.groupTitle ?? 'Group ') + g, category: ['management', 'core', 'core', 'support'][g % 4],
+      processes: Array.from({ length: processes }, (_, p) => ({
+        id: `c${c}g${g}p${p}`, title: (extra.processTitle ?? 'Process ') + p, ...(extra.process || {}),
+        activities: Array.from({ length: activities }, (_, a) => ({ id: `c${c}g${g}p${p}a${a}`, title: (extra.activityTitle ?? 'Activity ') + a, ...(extra.activity || {}) })),
+      })),
+    })),
+  })),
+});
+
+async function run() {
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
+  await load(1400);
+  view('Display'); await wait(200);
+
+  // ---- Hierarchy rendering (display mode) ----
+  const s0 = stored();
+  ok('example: 2 value chains, 8 groups, 17 processes, 51 activities in the first', s0.valueChains.length === 2 && s0.valueChains[0].groups.length === 8 && s0.valueChains[0].groups.reduce((n, g) => n + g.processes.length, 0) === 17);
+  ok('L0 banner with title, owner, status, tags and totals', /IT service value chain/.test($('.pa-l0-title').textContent) && /Chief Information Officer/.test($('.pa-l0').textContent) && $$('.pa-stats dd').map(x => x.textContent).join() === '8,17,51');
+  ok('value chains are tabs (L0 selector), first selected', $$('[role=tab]').length === 2 && $('[role=tab][aria-selected=true]').dataset.chain === 'vc-it');
+  const rows = cat => $$(`.pa-row[data-category="${cat}"] .pa-group`).map(g => g.dataset.node);
+  ok('L1 groups in management / core / support rows', rows('management').join() === 'g-govern' && rows('core').join() === 'g-plan,g-build,g-deliver,g-improve' && rows('support').join() === 'g-suppliers,g-people,g-security');
+  const core = rows('core').map(id => node(id).getBoundingClientRect());
+  ok('core groups form one left-to-right value flow (chevrons)', core.every((r, i) => !i || (Math.abs(r.top - core[0].top) < 2 && r.left > core[i - 1].left)) && getComputedStyle(node('g-build'), '::before').clipPath.startsWith('polygon'));
+  ok('automatic numbering: groups 1–8', $$('.pa-group .pa-code').map(c => c.textContent).join() === '1,2,3,4,5,6,7,8');
+  ok('distinct level markers L0 / L1 / L2 / L3 styles', getComputedStyle($('.pa-l0 .pa-level-badge')).backgroundColor !== 'rgba(0, 0, 0, 0)');
+  ok('only the overview is shown before drilling down', levels() === '0' && crumbs().length === 1);
+  integrity('overview 1400');
+
+  // ---- Drill-down: L1 → L2 → L3 ----
+  click(sel('g-build')); await wait(80);
+  ok('selecting a group opens its processes (L2 cards)', levels() === '01' && $$('.pa-level-1 .pa-process').length === 3 && sel('g-build').getAttribute('aria-pressed') === 'true');
+  ok('other groups dimmed, breadcrumb L0 › L1', $$('.pa-group.is-dimmed').length === 7 && crumbs().length === 2 && /L1 Build & test/.test(crumbs()[1]));
+  ok('process numbers follow their group (3.1–3.3)', $$('.pa-level-1 .pa-process .pa-code').map(c => c.textContent).join() === '3.1,3.2,3.3');
+  click(sel('p-test')); await wait(80);
+  ok('selecting a process opens its activities (L3)', levels() === '012' && $$('.pa-level-2 .pa-step').length === 4 && crumbs().length === 3);
+  ok('activities numbered 1–4 and 3.2.1–3.2.4', $$('.pa-step-no').map(x => x.textContent).join() === '1,2,3,4' && $$('.pa-level-2 .pa-step .pa-code').map(c => c.textContent).join() === '3.2.1,3.2.2,3.2.3,3.2.4');
+  ok('activity owner, status and tags shown', /Test analyst/.test(node('p-test-a2').textContent) && node('p-test-a2').querySelector('.pa-status[data-status="active"]') && /Gate/.test(node('p-test-a4').textContent));
+  ok('safe external link with noopener', (() => { const a = node('p-test').querySelector('a.pa-link'); return a && a.target === '_blank' && a.rel.includes('noopener'); })());
+  click(sel('p-test-a2')); await wait(60);
+  ok('selecting an activity highlights it', node('p-test-a2').classList.contains('is-selected') && sel('p-test-a2').getAttribute('aria-pressed') === 'true');
+  integrity('all levels 1400');
+  click($('[data-action="up"]')); await wait(60);
+  ok('Up one level: activity cleared, still in the process', levels() === '012' && !$('.pa-step.is-selected'));
+  click($('[data-action="up"]')); await wait(60);
+  ok('Up again: back to the group', levels() === '01');
+  click($$('.pa-crumb')[0]); await wait(60);
+  ok('breadcrumb L0 returns to the overview', levels() === '0' && !$('.pa-group.is-selected'));
+  click(sel('g-deliver')); await wait(60); click(sel('g-deliver')); await wait(60);
+  ok('clicking the selected group again closes it', levels() === '0');
+
+  // ---- Expand / collapse ----
+  const exp = node('g-deliver').querySelector('.pa-expand');
+  ok('groups start collapsed (button aria-expanded=false)', exp.getAttribute('aria-expanded') === 'false' && !node('g-deliver').querySelector('.pa-pills'));
+  click(exp); await wait(60);
+  ok('expand lists the group\'s processes as pills', node('g-deliver').querySelector('.pa-expand').getAttribute('aria-expanded') === 'true' && node('g-deliver').querySelectorAll('.pa-pill').length === 3);
+  click(node('g-deliver').querySelectorAll('.pa-pill')[1]); await wait(80);
+  ok('a pill jumps straight to that process (L2 + L3 shown)', levels() === '012' && crumbs()[2].includes('Incident management'));
+  click(node('g-deliver').querySelector('.pa-expand')); await wait(40);
+  ok('collapse hides the pills again', !node('g-deliver').querySelector('.pa-pills'));
+  const showActs = node('p-desk').querySelector('.pa-expand-text');
+  click(showActs); await wait(40);
+  ok('process card can expand its activities inline', node('p-desk').querySelectorAll('.pa-mini li').length === 4 && node('p-desk').querySelector('.pa-expand-text').getAttribute('aria-expanded') === 'true');
+  click(node('p-desk').querySelector('.pa-expand-text')); await wait(40);
+
+  // ---- Keyboard ----
+  sel('g-plan').focus(); key(sel('g-plan'), 'ArrowRight'); await wait(30);
+  ok('→ moves to the next group in the same row', d.activeElement === sel('g-build'));
+  key(d.activeElement, 'End'); await wait(30);
+  ok('End jumps to the last group of the row', d.activeElement === sel('g-improve'));
+  key(d.activeElement, 'ArrowRight'); await wait(30);
+  ok('→ wraps around within the row', d.activeElement === sel('g-plan'));
+  key(d.activeElement, 'Escape'); await wait(60);
+  ok('Esc goes up one level (process → group)', levels() === '01');
+  key(d.activeElement, 'Escape'); await wait(60);
+  ok('Esc again returns to the overview', levels() === '0');
+  const tab2 = $('[role=tab][data-chain="vc-product"]');
+  $('[role=tab][aria-selected=true]').focus(); key(d.activeElement, 'ArrowRight'); await wait(30);
+  ok('→ moves between value-chain tabs (roving tabindex)', d.activeElement === tab2 && tab2.tabIndex === -1);
+  click(tab2); await wait(80);
+  ok('second value chain: its own groups, core only (empty rows hidden)', $('[role=tab][aria-selected=true]') === tab2 && $$('.pa-group').length === 3 && !$('.pa-row[data-category="management"]'));
+  click(sel('g-launch')); await wait(40); click(sel('p-golive')); await wait(60);
+  ok('empty state for a process without activities', /No activities in this process yet/.test($('.pa-level-2').textContent));
+  ok('accessible names: level sections and live announcement', /^L2 process: Go-live/.test($('.pa-level-2').getAttribute('aria-label')) && /Process Go-live/.test($('.pa [role=status]').textContent));
+
+  // ---- Read-only (display) mode exposes no editing controls ----
+  ok('display mode: no editing controls', $$('.gl-main textarea, .gl-main input').length === 0 && !$('.pae-tools, .pae-add, [data-inspector], [data-panel]') && $$('[data-action]').every(b => b.dataset.action === 'up'));
+
+  // ---- Responsive ----
+  await load(800); view('Display'); await wait(150);
+  click(sel('g-build')); await wait(40); click(sel('p-test')); await wait(60);
+  integrity('all levels 800');
+  await load(390); view('Display'); await wait(150);
+  click(sel('g-build')); await wait(40); click(sel('p-test')); await wait(60);
+  const coreN = ['g-plan', 'g-build', 'g-deliver', 'g-improve'].map(id => node(id).getBoundingClientRect());
+  ok('390 px: the value flow turns into a vertical stack', coreN.every((r, i) => !i || (r.top > coreN[i - 1].bottom - 1 && Math.abs(r.left - coreN[0].left) < 2)));
+  integrity('all levels 390');
+
+  // ---- Editing (editor mode) ----
+  await load(1400);
+  ok('editor: the inspector starts on the L0 value chain shown', inspector()?.dataset.inspector === 'vc-it' && inspector().dataset.inspectorLevel === '0');
+  click(node('g-build')); await wait(80);
+  ok('clicking a group selects it and opens the L1 inspector', inspector()?.dataset.inspector === 'g-build' && inspector().dataset.inspectorLevel === '1' && levels() === '01');
+  const gTitle = node('g-build').querySelector('textarea[aria-label="L1 process group title"]');
+  type(gTitle, 'Build & verify'); await wait(40);
+  ok('L1 title edited in place', chain0().groups.find(g => g.id === 'g-build').title === 'Build & verify');
+  type(gTitle, ''); gTitle.blur(); await wait(40);
+  ok('an empty title is restored on blur', chain0().groups.find(g => g.id === 'g-build').title === 'Build & verify');
+  type($('.pa-l0 textarea[aria-label="L0 value chain title"]'), 'IT value chain'); await wait(30);
+  ok('L0 title edited', chain0().title === 'IT value chain');
+  type(node('p-dev').querySelector('textarea[aria-label="L2 process description"]'), 'Builds features in short iterations.'); await wait(30);
+  ok('L2 description edited', chain0().groups.find(g => g.id === 'g-build').processes[0].description === 'Builds features in short iterations.');
+  click($('[data-action="add-l2"]')); await wait(100);
+  const procs = () => chain0().groups.find(g => g.id === 'g-build').processes;
+  ok('Add process: appended, selected and its title focused', procs().length === 4 && levels() === '012' && d.activeElement?.getAttribute('aria-label') === 'L2 process title' && d.activeElement.value === 'New process');
+  type(d.activeElement, 'Performance testing'); await wait(30);
+  click($('[data-action="add-l3"]')); await wait(100);
+  ok('Add activity to the new process', procs()[3].title === 'Performance testing' && procs()[3].activities.length === 1 && d.activeElement?.getAttribute('aria-label') === 'L3 activity title');
+  type(d.activeElement, 'Run load test'); await wait(30);
+  const newAct = procs()[3].activities[0].id;
+  click(tool(newAct, 'insert')); await wait(100);
+  ok('insert after an activity', procs()[3].activities.length === 2 && procs()[3].activities[0].id === newAct);
+  click(tool(newAct, 'later')); await wait(60);
+  ok('reorder activities', procs()[3].activities[1].id === newAct);
+  click(tool(newAct, 'delete')); await wait(60);
+  ok('delete activity shows Undo', procs()[3].activities.length === 1 && /Undo/.test($('.pae-toast')?.textContent || ''));
+  click($$('.pae-toast button').find(b => b.textContent === 'Undo')); await wait(80);
+  ok('Undo restores it at the same position', procs()[3].activities[1]?.id === newAct);
+  // groups: reorder within the core row, add and delete
+  const coreOrder = () => chain0().groups.filter(g => g.category === 'core').map(g => g.id).join();
+  click(tool('g-build', 'later')); await wait(80);
+  ok('move a core group later (clockwise in the flow)', coreOrder() === 'g-plan,g-deliver,g-build,g-improve');
+  ok('…and the move button keeps focus', d.activeElement === tool('g-build', 'later'));
+  click(tool('g-build', 'earlier')); await wait(60);
+  ok('move back earlier', coreOrder() === 'g-plan,g-build,g-deliver,g-improve');
+  ok('first management group cannot move earlier or later (alone in its row)', tool('g-govern', 'earlier').disabled && tool('g-govern', 'later').disabled);
+  click($('[data-action="add-l1-support"]')); await wait(100);
+  ok('Add support group: added in the support row and selected', chain0().groups.filter(g => g.category === 'support').length === 4 && $$('.pa-row[data-category="support"] .pa-group').length === 4 && inspector()?.dataset.inspectorLevel === '1');
+  const newGroup = chain0().groups[chain0().groups.length - 1].id;
+  click(tool(newGroup, 'delete')); await wait(80);
+  ok('delete group', !chain0().groups.some(g => g.id === newGroup) && !node(newGroup));
+  click(tool('g-improve', 'delete')); await wait(80);
+  const before = $('.pae-toast').textContent;
+  click($$('.pae-toast button').find(b => b.textContent === 'Undo')); await wait(80);
+  ok('delete + Undo a group with all its processes and activities', /Measure & improve/.test(before) && chain0().groups.find(g => g.id === 'g-improve')?.processes.length === 2 && coreOrder().endsWith('g-improve'));
+  // value chains
+  click($('[data-action="add-l0"]')); await wait(100);
+  ok('Add value chain: new tab selected with empty rows to fill', stored().valueChains.length === 3 && $('[role=tab][aria-selected=true]').textContent.includes('New value chain') && $$('.pa-group').length === 0 && !!$('[data-action="add-l1-core"]'));
+  click($('[data-action="add-l1-core"]')); await wait(100);
+  ok('…and its first core group', stored().valueChains[2].groups.length === 1 && stored().valueChains[2].groups[0].category === 'core');
+  click(tool(stored().valueChains[2].id, 'delete')); await wait(80);
+  ok('delete a value chain', stored().valueChains.length === 2 && $$('[role=tab]').length === 2);
+
+  // ---- Inspector fields ----
+  click(node('g-build')); await wait(40); click(node('p-test')); await wait(60);
+  ok('clicking a process selects it (L2 inspector)', inspector()?.dataset.inspector === 'p-test');
+  type(inputIn(inspector(), 'Owner'), 'Head of Quality'); await wait(30);
+  click(seg(inspector(), 'Status', 'In review')); await wait(30);
+  type(inputIn(inspector(), 'Tags'), 'Quality, Gate, '); await wait(30);
+  const pt = () => chain0().groups.find(g => g.id === 'g-build').processes.find(p => p.id === 'p-test');
+  ok('owner, status and tags saved (typing a trailing comma is kept)', pt().owner === 'Head of Quality' && pt().status === 'in-review' && pt().tags.join() === 'Quality,Gate' && inputIn(inspector(), 'Tags').value === 'Quality, Gate, ');
+  ok('…and shown on the card', /Head of Quality/.test(node('p-test').textContent) && node('p-test').querySelector('.pa-status[data-status="in-review"]'));
+  type(inputIn(inspector(), 'Code'), 'QA-01'); await wait(40);
+  ok('a code replaces the automatic number', pt().code === 'QA-01' && node('p-test').querySelector('.pa-code').textContent === 'QA-01');
+  const link = inputIn(inspector(), 'Link');
+  type(link, 'javascript:alert(1)'); await wait(30);
+  ok('unsafe link flagged and not saved', link.classList.contains('is-invalid') && pt().href === 'https://example.com/quality-handbook');
+  type(link, 'https://example.com/qa'); await wait(30);
+  ok('valid link saved', pt().href === 'https://example.com/qa');
+  click(node('g-security')); await wait(60);
+  click(seg(inspector(), 'Category', 'Core')); await wait(60);
+  ok('changing a group category moves it to that row', !!$('.pa-row[data-category="core"] [data-node="g-security"]'));
+  click(seg(inspector(), 'Category', 'Support')); await wait(40);
+  type(inspector().querySelector('input[aria-label="Group colour"]'), '#b91c1c'); await wait(40);
+  ok('group colour saved and applied', chain0().groups.find(g => g.id === 'g-security').color === '#b91c1c' && /185, 28, 28/.test(getComputedStyle(node('g-security'), '::before').backgroundColor));
+  click([...inspector().querySelectorAll('.te-link')].find(b => b.textContent.trim() === 'No icon')); await wait(40);
+  ok('group icon removed', chain0().groups.find(g => g.id === 'g-security').icon === null && !node('g-security').querySelector('.pa-group-icon'));
+  integrity('editor 1400');
+
+  // ---- JSON import validation ----
+  let msg = await importData('{ nope');
+  ok('import: invalid JSON rejected', /Not valid JSON/.test(msg) && stored().valueChains.length === 2);
+  msg = await importData({ valueChains: [] });
+  ok('import: 0 value chains is an error', /not imported/.test(msg) && /between 1 and 6/.test(msg));
+  msg = await importData(gen(7, 1, 1, 1));
+  ok('import: 7 value chains is an error', /not imported/.test(msg));
+  msg = await importData(gen(1, 1, 1, 31));
+  ok('import: more than 30 activities is an error', /at most 30/.test(msg));
+  msg = await importData({ valueChains: [{ title: 'No id', groups: [{ id: 'x', title: 'A', category: 'sideways', status: 'done', processes: [{ id: 'x', title: 'Dup', href: 'javascript:alert(1)', tags: 'nope', activities: [{ title: 'No id' }] }] }] }] });
+  const m = stored();
+  ok('import with corrections lists them', /Imported 1 value chain with \d+ corrections/.test(msg), msg.slice(0, 100));
+  const flat = [m.valueChains[0].id, m.valueChains[0].groups[0].id, m.valueChains[0].groups[0].processes[0].id, m.valueChains[0].groups[0].processes[0].activities[0].id];
+  ok('ids made unique across all levels', new Set(flat).size === 4 && flat.every(Boolean));
+  ok('unknown category / status corrected, unsafe link and bad tags dropped', m.valueChains[0].groups[0].category === 'core' && m.valueChains[0].groups[0].status === '' && m.valueChains[0].groups[0].processes[0].href === '' && m.valueChains[0].groups[0].processes[0].tags.length === 0);
+  ok('missing optional fields render (one chain, no tabs needed in display)', $$('.pa-group').length === 1);
+  msg = await importData(gen(1, 4, 2, 3));
+  ok('generated data: 4 groups × 2 processes × 3 activities', /Imported 1 value chain\.$/.test(msg.trim()) && $$('.pa-group').length === 4);
+  const L = n => ('Process' + ' architecture'.repeat(40)).slice(0, n);
+  const long = gen(1, 4, 3, 3, { chainTitle: L(78), groupTitle: L(78), processTitle: L(78), activityTitle: L(78), process: { description: L(400), owner: L(80) }, activity: { description: L(400), tags: ['Tag one', 'Tag two', 'Tag three'] } });
+  msg = await importData(long);
+  ok('maximum-length text imports without corrections', /Imported 1 value chain\.$/.test(msg.trim()), msg.slice(0, 120));
+  click(node('c0g1')); await wait(40); click(node('c0g1p0')); await wait(60);
+  integrity('maximum-length text 1400');
+  await load(390); click(node('c0g1')); await wait(40); click(node('c0g1p0')); await wait(60);
+  integrity('maximum-length text 390');
+
+  // ---- Persistence, reset, invalid storage ----
+  await load(1400);
+  ok('after reload: imported content persisted', stored().valueChains[0].groups.length === 4 && $$('.pa-group').length === 4);
+  click($('[data-action="reset"]')); await wait(30); click($('[data-action="reset"]')); await wait(120);
+  ok('Reset (two clicks) restores the example', stored().valueChains.length === 2 && $$('.pa-group').length === 8);
+  localStorage.setItem(KEY, '{"version":1,"valueChains":"broken"}'); await load(1400);
+  ok('invalid stored data falls back to the example', $$('.pa-group').length === 8);
+  localStorage.setItem(KEY, 'not json'); await load(1400);
+  ok('corrupt stored data falls back to the example', $$('.pa-group').length === 8);
+
+  ok('no console errors / exceptions', errors.length === 0, JSON.stringify(errors.slice(0, 5)));
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
+  document.getElementById('out').textContent = 'SUMMARY ' + R.filter(x => x.startsWith('PASS')).length + '/' + R.length + ' passed\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n') + '\n\n' + notes.join('\n');
+}
+run().catch(e => { document.getElementById('out').textContent = 'CRASH ' + e.stack + '\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n'); });
+</script></body></html>
