@@ -1,0 +1,659 @@
+/* ==========================================================================
+   Ecosystem Map editor — in-place editing on top of the renderer styles.
+   Colours: --eme-* / --ed-* variables derived from the active theme.
+   ========================================================================== */
+
+.eme {
+  display: grid;
+  gap: 0.9rem;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+  border-radius: 1.4rem;
+  background: var(--eme-bg);
+  color: var(--eme-text);
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+.eme *,
+.eme *::before,
+.eme *::after {
+  box-sizing: border-box;
+}
+
+.eme > .em {
+  padding: clamp(0.5rem, 1.5vw, 1rem);
+}
+
+.eme-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.eme svg {
+  flex: none;
+}
+
+/* ---------- Toolbar, buttons, toast ---------- */
+.eme-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.4rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--eme-border);
+  border-radius: 0.9rem;
+  background: var(--eme-panel);
+}
+
+.eme-toolbar-group,
+.eme-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+}
+
+.eme-toolbar-end {
+  margin-left: auto;
+}
+
+.eme-count,
+.eme-muted {
+  color: var(--eme-muted);
+  font-size: 0.84rem;
+}
+
+.eme-count strong {
+  color: var(--eme-heading);
+  font-size: 0.95rem;
+}
+
+.eme-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px dashed var(--eme-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--eme-accent);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.eme-btn:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--eme-accent);
+}
+
+.eme-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.eme-btn:focus-visible {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 2px;
+}
+
+.eme-btn svg,
+.eme-tools svg,
+.eme-saved svg,
+.eme-add-item svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.eme-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--eme-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.eme-saved.is-error {
+  color: #ffb36b;
+}
+
+.eme[data-scheme="light"] .eme-saved.is-error,
+.eme[data-scheme="light"] .te-link.is-armed {
+  color: #b45309;
+}
+
+.eme-toast {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--eme-border);
+  border-radius: 0.65rem;
+  background: var(--eme-panel);
+  font-size: 0.86rem;
+}
+
+.eme-hint-card {
+  margin: 0;
+  padding: 0.7rem 1rem;
+  border: 1px dashed var(--eme-border);
+  border-radius: 0.8rem;
+  color: var(--eme-muted);
+  font-size: 0.86rem;
+}
+
+/* ---------- Inline fields inside the map ---------- */
+/* Empty optional fields appear only while their card or item is hovered, focused or selected. */
+.em-card:not(:hover):not(:focus-within):not(.is-selected) .em-card-desc.is-empty,
+.em-item:not(:hover):not(:focus-within) .em-item-desc.is-empty,
+.em-center:not(:hover):not(:focus-within) .em-center-subtitle.is-empty {
+  display: none;
+}
+
+/* A strip at the top of each card holds its tools, so they never cover the title. */
+.em.is-editable .em-card {
+  padding-top: 2.35em;
+}
+
+.em.is-editable .em-title {
+  width: min(100%, 48rem);
+}
+
+.em.is-editable .em-item-line .te-field {
+  flex: 1 1 8em;
+  width: auto;
+  min-width: 0;
+}
+
+.em.is-editable .em-item-desc.te-field {
+  width: calc(100% + 0.7rem);
+}
+
+.em.is-editable .em-center .te-field {
+  width: 100%;
+  margin: 0;
+  padding: 0.1em 0.2em;
+  color: inherit;
+  text-align: center;
+}
+
+.ed-scope .em-center .te-field::placeholder {
+  color: currentColor;
+  opacity: 0.7;
+}
+
+.ed-scope .em-center .te-field:hover {
+  border-color: currentColor;
+  background: transparent;
+}
+
+.ed-scope .em-center .te-field:focus {
+  border-color: currentColor;
+  background: color-mix(in srgb, var(--em-center-fill) 82%, #000);
+}
+
+.ed-scope .em-center[data-style="outline"] .te-field:focus {
+  background: var(--em-panel);
+}
+
+/* ---------- Icon pickers on the map ---------- */
+.eme-badge-wrap,
+.eme-center-icon,
+.eme-item-icon-wrap {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+}
+
+.eme-center-icon {
+  width: 2.5em;
+  height: 2.5em;
+}
+
+.eme-badge-wrap.is-empty,
+.eme-center-icon.is-empty,
+.eme-item-icon-wrap.is-empty {
+  border: 1.5px dashed currentColor;
+  opacity: 0.6;
+}
+
+.eme-badge-wrap .te-icon-picker,
+.eme-center-icon .te-icon-picker,
+.eme-item-icon-wrap .te-icon-picker {
+  width: 100%;
+  height: 100%;
+}
+
+.eme-icon-button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+}
+
+.eme-icon-button > svg {
+  width: 1.2em;
+  height: 1.2em;
+}
+
+.eme-center-icon .eme-icon-button > svg {
+  width: 1.5em;
+  height: 1.5em;
+}
+
+.eme-item-icon-wrap {
+  border: 1px solid var(--eme-border);
+  color: var(--eme-text);
+}
+
+.em .te-icon-menu {
+  max-width: calc(100vw - 2rem);
+  font-size: 1rem;
+}
+
+.em-center .te-icon-menu {
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.em-side-right .te-icon-menu,
+.em-side-left .te-icon-menu {
+  left: 0;
+}
+
+/* ---------- Group and item tools ---------- */
+.eme-tools {
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.eme-group-tools {
+  position: absolute;
+  top: 0.45em;
+  right: 0.5em;
+  z-index: 3;
+}
+
+.em-card:hover .eme-group-tools,
+.em-card:focus-within .eme-group-tools,
+.em-card.is-selected .eme-group-tools,
+.em-item:hover .eme-item-tools,
+.em-item:focus-within .eme-item-tools {
+  opacity: 1;
+}
+
+.eme-item-tools {
+  align-self: start;
+}
+
+.eme-tools button,
+.eme-color {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border: 1px solid var(--eme-border);
+  border-radius: 0.45rem;
+  background: var(--eme-surface);
+  color: var(--eme-muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.eme-item-tools button {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.eme-tools button:hover:not(:disabled) {
+  border-color: var(--eme-accent);
+  color: var(--eme-text);
+}
+
+.eme-tools button.is-danger:hover:not(:disabled) {
+  border-color: #ff9b9b;
+  color: #ff9b9b;
+}
+
+.eme[data-scheme="light"] .eme-tools button.is-danger:hover:not(:disabled) {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
+.eme-tools button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.eme-tools button:focus-visible,
+.eme-color:focus-within {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 1px;
+}
+
+.eme-color-swatch {
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--eme-border);
+}
+
+.eme-color input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.eme-add-item {
+  margin-top: 0;
+}
+
+/* ---------- Panels (inspector, appearance, data) ---------- */
+.eme-inspector,
+.eme-appearance,
+.eme-data {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--eme-border);
+  border-radius: 1rem;
+  background: var(--eme-panel);
+}
+
+.eme-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+}
+
+.eme-panel-head h3 {
+  margin: 0;
+  color: var(--eme-heading);
+  font-size: 1rem;
+}
+
+.eme-inspector-name {
+  color: var(--eme-accent);
+}
+
+.eme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.9rem 1.4rem;
+}
+
+.eme-field {
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.eme-field-wide {
+  grid-column: 1 / -1;
+}
+
+.eme-field-label {
+  color: var(--eme-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.eme-field .te-theme {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.eme-presets,
+.eme-segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.eme-preset,
+.eme-segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--eme-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--eme-text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.eme-preset[aria-pressed="true"],
+.eme-segmented button[aria-pressed="true"] {
+  border-color: var(--eme-accent);
+  box-shadow: inset 0 0 0 1px var(--eme-accent);
+  color: var(--eme-heading);
+}
+
+.eme-preset:focus-visible,
+.eme-segmented button:focus-visible,
+.eme-advanced summary:focus-visible,
+.eme-data summary:focus-visible,
+.eme-check input:focus-visible {
+  outline: 2px solid var(--ed-focus);
+  outline-offset: 2px;
+}
+
+.eme-preset-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px var(--eme-border);
+}
+
+.eme-auto {
+  color: var(--eme-muted);
+  font-size: 0.76rem;
+}
+
+.eme-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.eme-check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--eme-accent);
+}
+
+.eme-input,
+.eme-code {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--eme-border);
+  border-radius: 0.5rem;
+  background: var(--eme-surface);
+  color: var(--eme-text);
+  font: inherit;
+  font-size: 0.86rem;
+}
+
+.eme-input:focus,
+.eme-code:focus {
+  outline: none;
+  border-color: var(--eme-accent);
+  box-shadow: 0 0 0 1px var(--eme-accent);
+}
+
+.eme-input.is-invalid {
+  border-color: #ff9b9b;
+}
+
+.eme[data-scheme="light"] .eme-input.is-invalid {
+  border-color: #b91c1c;
+}
+
+.eme[data-scheme="light"] .te-hint-error {
+  color: #b91c1c;
+}
+
+.eme-input::placeholder,
+.eme-code::placeholder {
+  color: var(--eme-muted);
+  opacity: 0.8;
+}
+
+.eme-fieldset {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0.75rem 0.9rem 0.9rem;
+  border: 1px solid var(--eme-border);
+  border-radius: 0.8rem;
+}
+
+.eme-fieldset legend {
+  padding: 0 0.35rem;
+  color: var(--eme-heading);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.eme-advanced summary,
+.eme-data summary {
+  color: var(--eme-heading);
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.eme-badge {
+  margin-left: 0.5rem;
+  padding: 0.05rem 0.5rem;
+  border: 1px solid var(--eme-accent);
+  border-radius: 999px;
+  color: var(--eme-accent);
+  font-size: 0.7rem;
+}
+
+.eme-overrides {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.45rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.eme-override {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 0.84rem;
+}
+
+.eme-override-name {
+  flex: 1;
+}
+
+.eme-override.is-custom .eme-override-name {
+  color: var(--eme-heading);
+  font-weight: 700;
+}
+
+.eme-contrast,
+.eme-import-result {
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.6rem;
+  background: var(--eme-bg);
+  color: var(--eme-text);
+  font-size: 0.82rem;
+}
+
+.eme-import-result:empty {
+  display: none;
+}
+
+.eme-contrast.has-warnings,
+.eme-import-result.is-error {
+  box-shadow: inset 3px 0 0 #ffb36b;
+}
+
+.eme-import-result.is-ok {
+  box-shadow: inset 3px 0 0 var(--eme-accent);
+}
+
+.eme-contrast ul,
+.eme-import-result ul {
+  margin: 0.3rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.eme-import-result p {
+  margin: 0;
+}
+
+.eme-data-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.9rem 1.4rem;
+  margin-top: 0.8rem;
+}
+
+.eme-code {
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+/* Touch screens have no hover: keep the controls visible. */
+@media (hover: none) {
+  .eme-tools {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eme-tools {
+    transition: none;
+  }
+}

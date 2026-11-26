@@ -1,0 +1,215 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<iframe id="f" style="border:0;width:1400px;height:900px"></iframe>
+<pre id="out" style="font:13px monospace;white-space:pre-wrap">waiting</pre>
+<script>
+// Ecosystem & Interfaces Map: customisation and theming — presets, primary and secondary
+// colours, light/dark schemes, WCAG contrast across presets, card / connector / centre styles,
+// corner radius, spacing, typography, layout preference, collapsing, item details,
+// advanced overrides, contrast report, reset and persistence.
+const EX = 'it-quality', KEY = `agile-infographics.ecosystem-map.${EX}.v1`, AKEY = KEY + '.appearance';
+const OM = 'agile-infographics.ecosystem-map.operating-model.v1';
+const f = document.getElementById('f'); const R = []; const errors = []; const notes = [];
+const ok = (n, c, extra = '') => R.push((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : '  ' + extra));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let d, w;
+function load(width = 1400, hash = `#/ecosystem-map/${EX}`) {
+  f.style.width = width + 'px';
+  return new Promise(res => {
+    f.onload = async () => {
+      d = f.contentDocument; w = f.contentWindow;
+      w.addEventListener('error', e => errors.push(String(e.message)));
+      const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
+      for (let i = 0; i < 60 && !d.querySelector('.em-card'); i++) await wait(100);
+      const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
+      await wait(250); res();
+    };
+    f.src = '/index.html?' + Math.random() + hash;
+  });
+}
+const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+function type(el, text) {
+  el.focus();
+  const proto = el.tagName === 'TEXTAREA' ? w.HTMLTextAreaElement.prototype : w.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, text);
+  el.dispatchEvent(new w.Event('input', { bubbles: true }));
+}
+const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const storedA = () => JSON.parse(w.localStorage.getItem(AKEY));
+const stored = () => JSON.parse(w.localStorage.getItem(KEY));
+const v = name => $('.em').style.getPropertyValue(name).trim();
+const seg = (label, text) => [...$(`[role=group][aria-label="${label}"]`).querySelectorAll('button')].find(b => b.textContent.trim() === text);
+const pick = async (label, text) => { click(seg(label, text)); await wait(120); };
+const cs = (el, p) => w.getComputedStyle(el)[p];
+const mode = () => $('.em-stage').dataset.mode;
+const view = name => click($$('.gl-view button').find(b => b.textContent.trim() === name));
+// WCAG contrast for #rrggbb and rgb() strings.
+const rgb = s => s.startsWith('#') ? [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16)) : s.match(/[\d.]+/g).map(Number).slice(0, 3);
+const lum = c => { const [r, g, b] = rgb(c).map(x => { x /= 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+
+/** Every text/background pair of the generated theme meets WCAG AA. */
+function contrastPairs() {
+  const pairs = [
+    ['heading on background', '--em-heading-on-bg', '--em-background'],
+    ['subtitle on background', '--em-subtitle-on-bg', '--em-background'],
+    ['group titles on cards', '--em-heading', '--em-surface'],
+    ['body text on cards', '--em-text', '--em-surface'],
+    ['secondary text on cards', '--em-text-muted', '--em-surface'],
+    ['accent text on cards', '--em-accent', '--em-surface'],
+    ['centre title', '--em-center-text', '--em-center-fill'],
+    ['centre subtitle', '--em-center-subtitle', '--em-center-fill'],
+    ['connector labels', '--em-label-text', '--em-label-fill'],
+  ];
+  return pairs.map(([n, fg, bg]) => [n, cr(v(fg), v(bg))]).filter(([, r]) => r < 4.5).map(([n, r]) => `${n} ${r.toFixed(2)}`);
+}
+const cardRects = () => $$('.em-card').map(c => { const r = c.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round).join(','); }).join('|');
+
+async function run() {
+  [KEY, AKEY, OM, OM + '.appearance'].forEach(k => localStorage.removeItem(k));
+  await load(1400);
+  const def = { surface: v('--em-surface'), fill: v('--em-center-fill'), active: v('--em-connector-active') };
+  ok('default theme applied (navy, dark)', storedA().base === '#1f4670' && $('.em').dataset.scheme === 'dark' && def.fill === '#1f4670');
+  ok('contrast report: all pass by default', /All text meets/.test($('.eme-contrast').textContent) && contrastPairs().length === 0, JSON.stringify(contrastPairs()));
+  const geo0 = cardRects();
+
+  // ---- Presets × schemes: WCAG AA everywhere, geometry unchanged ----
+  const presets = $$('.eme-preset');
+  ok('9 theme presets offered', presets.length === 9);
+  const failures = [];
+  for (const scheme of ['Dark', 'Light']) {
+    await pick('Colour scheme', scheme);
+    for (const p of $$('.eme-preset')) {
+      click(p); await wait(90);
+      const bad = contrastPairs();
+      if (bad.length) failures.push(`${scheme}/${p.textContent.trim()}: ${bad.join(', ')}`);
+      if (cardRects() !== geo0) failures.push(`${scheme}/${p.textContent.trim()}: geometry changed`);
+    }
+  }
+  ok('18 preset × scheme combinations: all text pairs ≥ 4.5:1 and layout unchanged', failures.length === 0, JSON.stringify(failures.slice(0, 4)));
+  ok('last preset stored', storedA().preset === 'graphite' && storedA().scheme === 'light');
+
+  // ---- Light scheme ----
+  await pick('Colour scheme', 'Light'); click($$('.eme-preset')[0]); await wait(90);
+  ok('light scheme: light background and cards, dark text', lum(v('--em-background')) > 0.8 && lum(v('--em-surface')) > 0.9 && lum(cs($('.em-card-title'), 'color')) < 0.1);
+  ok('light scheme: editor chrome follows (light panels)', lum(cs($('.eme-appearance'), 'backgroundColor')) > 0.8 && $('.eme').dataset.scheme === 'light');
+  await pick('Colour scheme', 'Dark');
+  ok('dark scheme restored', lum(v('--em-background')) < 0.05 && v('--em-surface') === def.surface);
+
+  // ---- Custom primary + secondary colours ----
+  const hex = $('.te-hex'); type(hex, '#b91c1c'); hex.blur(); await wait(90);
+  ok('custom primary HEX applied and stored', storedA().base === '#b91c1c' && v('--em-center-fill') !== def.fill && storedA().preset === 'crimson');
+  type(hex, '#12345'); await wait(40);
+  ok('invalid HEX is flagged and never applied', hex.classList.contains('is-invalid') && storedA().base === '#b91c1c');
+  hex.blur(); await wait(40);
+  ok('crimson: still AA everywhere', contrastPairs().length === 0, JSON.stringify(contrastPairs()));
+  const sec = $('input[aria-label="Secondary colour"]');
+  type(sec, '#0b6fa4'); await wait(90);
+  ok('secondary colour stored and drives connectors / accents', storedA().secondary === '#0b6fa4' && v('--em-connector-active') !== def.active && contrastPairs().length === 0);
+  click($$('.eme-appearance .te-link').find(b => b.textContent.trim() === 'Automatic')); await wait(60);
+  ok('secondary back to automatic', storedA().secondary === null);
+
+  // ---- Card style, corners, spacing, typography ----
+  await pick('Group cards', 'Outline');
+  ok('outline cards: transparent fill, coloured border', $('.em').dataset.cardStyle === 'outline' && cs($('.em-card'), 'backgroundColor') === 'rgba(0, 0, 0, 0)' && parseFloat(cs($('.em-card'), 'borderLeftWidth')) >= 1.5);
+  await pick('Group cards', 'Filled');
+  ok('filled cards: surface fill, no accent bar', cs($('.em-card'), 'backgroundColor') !== 'rgba(0, 0, 0, 0)' && parseFloat(cs($('.em-card'), 'borderTopWidth')) < 2);
+  await pick('Group cards', 'Accent bar');
+  ok('accent-bar cards: 4px top bar in the group colour', parseFloat(cs($('.em-card'), 'borderTopWidth')) === 4);
+  const radius = async t => { await pick('Corners', t); return parseFloat(cs($('.em-card'), 'borderTopLeftRadius')); };
+  const rs = [await radius('Square'), await radius('Soft'), await radius('Round')];
+  ok('corner radius square < soft < round', rs[0] < rs[1] && rs[1] < rs[2], JSON.stringify(rs));
+  const gap = async t => { await pick('Spacing', t); return parseFloat(cs($('.em-side-right'), 'rowGap')); };
+  const gs = [await gap('Compact'), await gap('Spacious'), await gap('Comfortable')];
+  ok('spacing compact < comfortable < spacious', gs[0] < gs[2] && gs[2] < gs[1], JSON.stringify(gs));
+  await pick('Text size', 'XL');
+  ok('text size XL scales the map (×1.2)', Math.abs(parseFloat(cs($('.em'), 'fontSize')) - 19.2) < 0.1 && storedA().typography.scale === 1.2);
+  ok('XL still fits the wide layout without overflow', mode() === 'radial' && d.documentElement.scrollWidth <= d.documentElement.clientWidth + 1);
+  await pick('Text size', 'M');
+  await pick('Heading weight', 'Heavy');
+  ok('heading weight applied to group titles', cs($('.em-card-title'), 'fontWeight') === '800');
+  await pick('Heading weight', 'Bold');
+
+  // ---- Centre style and size ----
+  for (const s of ['Solid', 'Outline', 'Rings']) { await pick('Centre style', s); }
+  ok('centre style is content (stored with the data) and rendered', stored().center.style === 'rings' && $('.em-center').dataset.style === 'rings');
+  await pick('Centre style', 'Outline');
+  ok('outline centre: panel fill with a coloured border', $('.em-center').dataset.style === 'outline' && parseFloat(cs($('.em-center-disc'), 'borderTopWidth')) >= 3 && stored().center.style === 'outline');
+  await pick('Centre style', 'Rings');
+  const size = async t => { await pick('Centre size', t); return $('.em-center').getBoundingClientRect().width; };
+  const ss = [await size('S'), await size('L'), await size('M')];
+  ok('centre size S < M < L', ss[0] < ss[2] && ss[2] < ss[1], JSON.stringify(ss.map(Math.round)));
+  ok('connectors re-attach to the resized centre', (() => { const c = $('.em-center').getBoundingClientRect(), s = $('.em-links').getBoundingClientRect(); const p = $('.em-link path').getAttribute('d').match(/-?\d+(\.\d+)?/g).map(Number); return Math.abs(Math.hypot(s.left + p[0] - (c.left + c.width / 2), s.top + p[1] - (c.top + c.height / 2)) - c.width / 2) < 2.5; })());
+
+  // ---- Connector shapes ----
+  const sideD = () => $(`.em-side-right .em-card`) && $(`.em-link[data-link="${$('.em-side-right .em-card').dataset.group}"] path`).getAttribute('d');
+  ok('curved connectors are cubic curves', / C /.test(sideD()));
+  await pick('Connectors', 'Elbow');
+  ok('elbow connectors are orthogonal with rounded corners', / Q /.test(sideD()) && !/ C /.test(sideD()));
+  await pick('Connectors', 'Straight');
+  ok('straight connectors are single lines', /^M [\d. -]+ L [\d. -]+$/.test(sideD()), sideD());
+  await pick('Connectors', 'Curved');
+
+  // ---- Group colouring ----
+  const badgeColours = () => new Set($$('.eme-badge-wrap').map(b => cs(b, 'backgroundColor'))).size;
+  ok('one colour: every group badge the same', badgeColours() === 1);
+  await pick('Group colours', 'Progressive');
+  ok('progressive: distinct shade per group, connectors follow', badgeColours() === 6 && new Set($$('.em-link').map(l => l.style.getPropertyValue('--link'))).size === 6, JSON.stringify([$$('.eme-badge-wrap').map(b => cs(b, 'backgroundColor')), $$('.em-link').map(l => l.style.getPropertyValue('--link'))]));
+  await pick('Group colours', 'One colour');
+
+  // ---- Layout preference ----
+  await pick('Layout', 'Two columns');
+  ok('layout preference: two columns at 1400 px', mode() === 'columns' && storedA().layout === 'columns');
+  await pick('Layout', 'One column');
+  ok('layout preference: one column at 1400 px', mode() === 'stack');
+  await pick('Layout', 'Around centre');
+  ok('layout preference: around the centre', mode() === 'radial');
+  await load(800);
+  ok('preferred radial layout falls back to columns when it would not fit (800 px)', mode() === 'columns' && d.documentElement.scrollWidth <= d.documentElement.clientWidth + 1);
+  await pick('Layout', 'Automatic');
+  await load(1400);
+
+  // ---- Advanced overrides + contrast report ----
+  click($('.eme-advanced summary')); await wait(40);
+  ok('10 colour overrides offered', $$('.eme-override').length === 10);
+  type($('input[aria-label="Group cards colour"]'), '#f4f4f4'); await wait(90);
+  ok('light card override: untouched text adapts to stay readable', storedA().overrides.surface === '#f4f4f4' && cr(v('--em-heading'), '#f4f4f4') >= 7 && cr(v('--em-text-muted'), '#f4f4f4') >= 4.5 && /All text meets/.test($('.eme-contrast').textContent));
+  type($('input[aria-label="Headings colour"]'), '#dddddd'); await wait(90);
+  ok('a poor manual override is flagged, not blocked', $('.eme-contrast').classList.contains('has-warnings') && /Group titles on cards/.test($('.eme-contrast').textContent) && v('--em-heading') === '#dddddd');
+  click($('button[aria-label="Use automatic Headings colour"]')); await wait(60);
+  click($('button[aria-label="Use automatic Group cards colour"]')); await wait(60);
+  ok('overrides back to automatic', Object.keys(storedA().overrides).length === 0 && !$('.eme-contrast').classList.contains('has-warnings'));
+
+  // ---- Persistence, reset appearance ----
+  await pick('Corners', 'Round'); await pick('Colour scheme', 'Light'); await pick('Connectors', 'Elbow');
+  const snapA = JSON.stringify(storedA()), vars = $('.em').getAttribute('style');
+  await load(1400);
+  ok('appearance persisted after reload', JSON.stringify(storedA()) === snapA && $('.em').getAttribute('style') === vars && $('.em').dataset.connector === 'elbow');
+  const content = JSON.stringify(stored());
+  click($$('button').find(b => b.textContent.trim() === 'Reset appearance')); await wait(100);
+  const a = storedA();
+  ok('Reset appearance restores the default look', a.base === '#1f4670' && a.scheme === 'dark' && a.radius === 'soft' && a.connector === 'curved' && v('--em-center-fill') === def.fill);
+  ok('Reset appearance keeps the content', JSON.stringify(stored()) === content);
+
+  // ---- Collapse threshold and item details (operating-model example: 8-item group) ----
+  await load(1400, '#/ecosystem-map/operating-model');
+  ok('example appearance applied (plum, outline cards, compact)', $('.em').dataset.cardStyle === 'outline' && $('.em').dataset.density === 'compact');
+  const processes = () => $('.em-card[data-group="processes"]');
+  ok('collapse after 6 by default', processes().querySelectorAll('.em-item').length === 6);
+  await pick('Collapse groups after', '4');
+  ok('collapse after 4', processes().querySelectorAll('.em-item').length === 4 && /Show all 8/.test(processes().textContent));
+  await pick('Collapse groups after', 'Never');
+  ok('never collapse', processes().querySelectorAll('.em-item').length === 8 && !processes().querySelector('.em-more'));
+  await pick('Item details', 'Selected group');
+  view('Display'); await wait(200);
+  ok('item details "selected": hidden until the group is selected', !processes().querySelector('.em-item-desc'));
+  click(processes().querySelector('.em-card-select')); await wait(80);
+  ok('…and shown for the selected group', /Continuous improvement/.test(processes().querySelector('.em-item-desc')?.textContent || ''));
+  view('Edit'); await wait(150);
+  await pick('Item details', 'Always');
+
+  ok('no console errors / exceptions', errors.length === 0, JSON.stringify(errors.slice(0, 5)));
+  [KEY, AKEY, OM, OM + '.appearance'].forEach(k => localStorage.removeItem(k));
+  document.getElementById('out').textContent = 'SUMMARY ' + R.filter(x => x.startsWith('PASS')).length + '/' + R.length + ' passed\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n') + '\n\n' + notes.join('\n');
+}
+run().catch(e => { document.getElementById('out').textContent = 'CRASH ' + e.stack + '\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n'); });
+</script></body></html>

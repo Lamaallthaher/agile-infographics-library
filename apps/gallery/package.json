@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@agile-infographics/core": "^0.1.0",
+    "@agile-infographics/ecosystem-map": "^0.1.0",
     "@agile-infographics/methodology-flow": "^0.1.0",
     "@agile-infographics/tom-wheel": "^0.1.0",
     "react": "^19.3.1",

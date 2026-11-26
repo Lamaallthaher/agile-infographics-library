@@ -1,0 +1,42 @@
+{
+  "name": "@agile-infographics/ecosystem-map",
+  "version": "0.1.0",
+  "description": "Editable Ecosystem & Interfaces Map infographic for React: a central entity connected to any number of surrounding groups, each with its own items.",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lamaallthaher/agile-infographics-library.git",
+    "directory": "packages/ecosystem-map"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": {
+      "@agile-infographics/source": "./src/index.ts",
+      "types": "./dist/types/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./renderer": {
+      "@agile-infographics/source": "./src/renderer/index.ts",
+      "types": "./dist/types/renderer/index.d.ts",
+      "default": "./dist/renderer.js"
+    },
+    "./style.css": "./dist/style.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json && node ../../scripts/strip-css-imports.mjs dist/types"
+  },
+  "dependencies": {
+    "@agile-infographics/core": "^0.1.0"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

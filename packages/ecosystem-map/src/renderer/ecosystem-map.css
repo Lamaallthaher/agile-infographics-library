@@ -1,0 +1,679 @@
+/* ==========================================================================
+   Ecosystem & Interfaces Map — Agile Infographics Library
+   Colours come only from --em-* variables (see theme.ts). Sizes are in em, so
+   the whole map scales with --em-scale. Layout modes (data-mode):
+   radial | columns | stack — chosen in layout.ts from the measured width.
+   ========================================================================== */
+
+.em {
+  position: relative;
+  padding: clamp(1rem, 3vw, 2rem);
+  border-radius: calc(var(--em-radius, 0.85rem) + 0.45rem);
+  background: var(--em-background);
+  color: var(--em-text);
+  font-family: var(--em-font);
+  font-size: calc(1rem * var(--em-scale, 1));
+  -webkit-font-smoothing: antialiased;
+}
+
+.em *,
+.em *::before,
+.em *::after {
+  box-sizing: border-box;
+}
+
+.em-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.em-invalid {
+  border: 1px dashed currentColor;
+  font: inherit;
+}
+
+/* ---------- Heading ---------- */
+.em-head {
+  display: grid;
+  justify-items: start;
+}
+
+.em-title {
+  margin: 0;
+  color: var(--em-heading-on-bg);
+  font-size: 1.6em;
+  font-weight: var(--em-title-weight, 700);
+  line-height: 1.2;
+}
+
+.em-title-bar {
+  display: block;
+  width: 3.6rem;
+  height: 4px;
+  margin: 0.5em 0 0.15em;
+  border-radius: 99px;
+  background: var(--em-connector-active);
+}
+
+.em-subtitle {
+  max-width: 60rem;
+  margin: 0.45em 0 0;
+  color: var(--em-subtitle-on-bg);
+  font-size: 0.98em;
+  line-height: 1.55;
+}
+
+/* ---------- Panel + stage ---------- */
+.em-panel {
+  margin-top: 1.25em;
+  padding: clamp(1rem, 2.6vw, 2.1rem);
+  border: 1px solid var(--em-panel-border);
+  border-radius: calc(var(--em-radius, 0.85rem) + 0.3rem);
+  background: var(--em-panel);
+}
+
+.em-head + .em-panel {
+  margin-top: 1.25em;
+}
+
+.em > .em-panel:first-child {
+  margin-top: 0;
+}
+
+.em-stage {
+  position: relative;
+  display: grid;
+  gap: var(--em-gap);
+}
+
+.em-stage[data-mode="radial"] {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: 0;
+  /* Row gaps hold the connector bus (and labels) to the top and bottom rows. */
+  row-gap: calc(var(--em-gap) + 2.4em);
+  align-items: center;
+}
+
+.em-stage:not([data-mode="radial"]) {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: calc(var(--em-gap) + 2.2em);
+}
+
+/* Connectors: an SVG overlay drawn from measured positions, under the cards. */
+.em-links {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.em-link {
+  color: var(--link, var(--em-connector));
+  transition: opacity 0.2s ease;
+}
+
+.em-link-path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke-width 0.15s ease;
+}
+
+.em-link[data-style="dashed"] .em-link-path {
+  stroke-dasharray: 7 6;
+}
+
+.em-link[data-style="dotted"] .em-link-path {
+  stroke-width: 2.6;
+  stroke-dasharray: 0.1 6.5;
+}
+
+.em-link-arrow {
+  fill: currentColor;
+}
+
+.em-link.is-active {
+  color: var(--em-connector-active);
+}
+
+.em-link.is-active .em-link-path {
+  stroke-width: 3.2;
+}
+
+.em[data-has-selection]:not(.is-editable) .em-link:not(.is-active) {
+  opacity: 0.35;
+}
+
+.em-link-label {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  max-width: calc(var(--em-link-zone) * 0.85 + 1em);
+  padding: 0.18em 0.6em;
+  border: 1px solid var(--link, var(--em-connector));
+  border-radius: 999px;
+  background: var(--em-label-fill);
+  color: var(--em-label-text);
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.em-link-label > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.em-link-label.is-active {
+  border-color: var(--em-connector-active);
+  color: var(--em-heading);
+}
+
+/* Labels of top/bottom rows sit on the bus and may use the card's width. */
+.em-stage[data-mode="radial"] .em-link-label[data-row] {
+  max-width: 14em;
+}
+
+/* ---------- Centre ---------- */
+.em-hub {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+}
+
+/* Named areas exist only in the radial grid (set inline from the occupied sides). */
+.em-stage[data-mode="radial"] .em-hub {
+  grid-area: hub;
+  padding-inline: var(--em-link-zone);
+}
+
+.em-center {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(calc(var(--em-center-size, 13.5rem) * var(--em-scale, 1)), 64vw);
+  aspect-ratio: 1;
+  border-radius: 50%;
+}
+
+.em-center-disc {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.3em;
+  width: 100%;
+  height: 100%;
+  padding: 13%;
+  border-radius: 50%;
+  background: var(--em-center-fill);
+  color: var(--em-center-text);
+  text-align: center;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.26);
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Rings: the disc sits inside two concentric rings (the default emphasis). */
+.em-center[data-style="rings"]::before,
+.em-center[data-style="rings"]::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+
+.em-center[data-style="rings"]::before {
+  inset: 0;
+  background: var(--em-center-ring);
+}
+
+.em-center[data-style="rings"]::after {
+  inset: 5.5%;
+  border: 2px solid var(--em-center-ring);
+  background: var(--em-panel);
+}
+
+.em-center[data-style="rings"] .em-center-disc {
+  width: 84%;
+  height: 84%;
+  padding: 11%;
+}
+
+.em-center[data-style="outline"] .em-center-disc {
+  border: 3px solid var(--em-center-fill);
+  background: var(--em-panel);
+  color: var(--em-text);
+  box-shadow: none;
+}
+
+.em-center-icon {
+  display: grid;
+  place-items: center;
+}
+
+.em-center-icon svg {
+  width: 1.75em;
+  height: 1.75em;
+}
+
+.em-center-title {
+  margin: 0;
+  font-size: 1.22em;
+  font-weight: var(--em-title-weight, 700);
+  line-height: 1.2;
+}
+
+.em-center[data-len="medium"] .em-center-title {
+  font-size: 1.04em;
+}
+
+.em-center[data-len="long"] .em-center-title {
+  font-size: 0.88em;
+}
+
+.em-center[data-len="long"] .em-center-icon svg {
+  width: 1.4em;
+  height: 1.4em;
+}
+
+.em-center-subtitle {
+  margin: 0;
+  color: var(--em-center-subtitle);
+  font-size: 0.76em;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.em-center[data-style="outline"] .em-center-subtitle {
+  color: var(--em-text-muted);
+}
+
+.em:not(.is-editable) .em-center-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.em:not(.is-editable) .em-center-subtitle {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* ---------- Sides (radial) ---------- */
+.em-side {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: var(--em-gap);
+  min-width: 0;
+}
+
+/* DOM order is clockwise from 12 o'clock; reversed flex directions keep it visually clockwise. */
+.em-side-top {
+  grid-area: top;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.em-side-right {
+  grid-area: right;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.em-side-bottom {
+  grid-area: bottom;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.em-side-left {
+  grid-area: left;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.em-side-left > .em-card,
+.em-side-right > .em-card {
+  width: 100%;
+  max-width: 26em;
+}
+
+.em-side-top > .em-card,
+.em-side-bottom > .em-card {
+  flex: 0 1 19em;
+  min-width: 0;
+}
+
+/* ---------- Grid (columns / stack) ---------- */
+.em-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: var(--em-gap);
+  align-items: start;
+}
+
+.em-stage[data-mode="columns"] .em-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: calc(var(--em-gap) + 2.6em);
+}
+
+.em-stage[data-mode="stack"] .em-grid {
+  padding-left: 1.9em;
+}
+
+/* ---------- Group cards ---------- */
+.em-card {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.6em;
+  min-width: 0;
+  padding: 0.95em 1em 1em;
+  border: 1px solid var(--em-surface-border);
+  border-radius: var(--em-radius, 0.85rem);
+  background: var(--em-surface);
+  color: var(--em-text);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+  overflow-wrap: break-word;
+  hyphens: auto;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+}
+
+.em[data-card-style="accent"] .em-card {
+  border-top: 4px solid var(--g);
+}
+
+.em[data-card-style="outline"] .em-card {
+  border: 2px solid var(--g);
+  background: transparent;
+  box-shadow: none;
+}
+
+.em-card.is-active {
+  border-color: var(--em-connector-active);
+}
+
+.em[data-card-style="accent"] .em-card.is-active {
+  border-top-color: var(--g);
+}
+
+.em-card.is-selected {
+  box-shadow: 0 0 0 2px var(--em-connector-active), 0 10px 26px rgba(0, 0, 0, 0.2);
+}
+
+.em-card.is-dimmed {
+  opacity: 0.6;
+}
+
+.em-card.is-hidden {
+  border-style: dashed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+.em-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65em;
+}
+
+.em-card-head > .em-card-titles:first-child {
+  grid-column: 1 / -1;
+}
+
+.em-badge {
+  display: grid;
+  place-items: center;
+  width: 2.2em;
+  height: 2.2em;
+  border-radius: 50%;
+}
+
+.em-badge svg {
+  width: 1.2em;
+  height: 1.2em;
+}
+
+.em-card-titles {
+  display: grid;
+  gap: 0.15em;
+  min-width: 0;
+}
+
+.em-card-title {
+  margin: 0;
+  color: var(--em-heading);
+  font-size: 1.04em;
+  font-weight: var(--em-title-weight, 700);
+  line-height: 1.3;
+}
+
+/* The title is the selection button; its hit area covers the whole card. */
+.em-card-select {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.em-card-select::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.em-card-select:focus-visible {
+  outline: none;
+}
+
+.em-card:has(.em-card-select:focus-visible) {
+  outline: 2px solid var(--em-focus);
+  outline-offset: 3px;
+}
+
+.em-hidden-flag {
+  justify-self: start;
+  padding: 0.05em 0.5em;
+  border: 1px dashed var(--em-surface-border);
+  border-radius: 999px;
+  color: var(--em-text-muted);
+  font-size: 0.72em;
+  font-weight: 700;
+}
+
+.em-card-desc {
+  margin: 0;
+  color: var(--em-text-muted);
+  font-size: 0.88em;
+  line-height: 1.5;
+}
+
+.em-card-relation {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: -0.15em 0 0;
+  color: var(--em-text-muted);
+  font-size: 0.76em;
+  font-weight: 700;
+}
+
+.em-card-relation-line {
+  flex: none;
+  width: 1.4em;
+  border-top: 2px solid var(--g);
+}
+
+.em-card-relation-line[data-style="dashed"] { border-top-style: dashed; }
+.em-card-relation-line[data-style="dotted"] { border-top-style: dotted; }
+
+/* ---------- Items ---------- */
+.em-items {
+  display: grid;
+  gap: 0.35em;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.em-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.15em minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.5em;
+  padding: 0.42em 0.6em;
+  border-radius: calc(var(--em-radius, 0.85rem) * 0.6);
+  background: var(--em-item-fill);
+  font-size: 0.9em;
+  line-height: 1.4;
+  transition: background-color 0.15s ease;
+}
+
+.em-card.is-selected .em-item {
+  background: color-mix(in srgb, var(--g) 16%, transparent);
+}
+
+/* Display mode: clicks on item text reach the card's selection button; links stay clickable. */
+.em:not(.is-editable) .em-item,
+.em:not(.is-editable) .em-card-desc {
+  pointer-events: none;
+}
+
+.em-item-dot {
+  width: 0.45em;
+  height: 0.45em;
+  margin: 0.48em 0 0 0.35em;
+  border-radius: 50%;
+  background: var(--g);
+}
+
+.em-item-icon {
+  display: grid;
+  place-items: center;
+  color: var(--g);
+}
+
+.em-item-icon svg {
+  width: 1.15em;
+  height: 1.15em;
+  margin-top: 0.1em;
+}
+
+.em-item-body {
+  display: grid;
+  gap: 0.1em;
+  min-width: 0;
+}
+
+.em-item-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2em 0.45em;
+}
+
+.em-item-label {
+  font-weight: 600;
+}
+
+.em-item-link {
+  position: relative;
+  z-index: 2;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--em-accent);
+  text-underline-offset: 0.18em;
+  pointer-events: auto;
+}
+
+.em-item-link:hover {
+  color: var(--em-accent);
+}
+
+.em-item-link:focus-visible,
+.em-more:focus-visible {
+  outline: 2px solid var(--em-focus);
+  outline-offset: 2px;
+  border-radius: 0.2em;
+}
+
+.em-item-tag {
+  padding: 0 0.45em;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  color: var(--em-accent);
+  font-size: 0.78em;
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.em-item-desc {
+  display: block;
+  margin: 0;
+  color: var(--em-text-muted);
+  font-size: 0.9em;
+  line-height: 1.45;
+}
+
+.em-more {
+  position: relative;
+  z-index: 2;
+  justify-self: start;
+  padding: 0.1em 0.2em;
+  border: 0;
+  background: transparent;
+  color: var(--em-accent);
+  font: inherit;
+  font-size: 0.8em;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.em-more:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .em-card,
+  .em-item,
+  .em-link,
+  .em-link-path {
+    transition: none;
+  }
+}

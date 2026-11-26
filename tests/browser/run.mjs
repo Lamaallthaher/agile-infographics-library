@@ -24,7 +24,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import http from "node:http";
 import { tmpdir } from "node:os";
-import { dirname, extname, join, resolve, sep } from "node:path";
+import { basename, dirname, extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -123,15 +123,80 @@ function startServer() {
   return new Promise((ok) => server.listen(0, "127.0.0.1", () => ok(server)));
 }
 
-function stopBrowser(child) {
-  if (child.exitCode !== null) return;
-  // On Windows, end the whole process tree (Edge/Chrome start several processes).
-  if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" });
-  else child.kill();
+/**
+ * Browser processes are found by their temporary profile folder, never by the PID
+ * of the process we spawned. Edge on Windows can relaunch itself
+ * (--edge-skip-compat-layer-relaunch): the spawned process exits and the real
+ * browser keeps running under a new PID. Every process of one suite run has
+ * the unique profile path on its command line, so matching on the profile's
+ * folder name finds all of them, and nothing else.
+ */
+const PROFILE_PREFIX = "aig-browser-test-";
+/** Profiles of suites still running, so an interrupted run can clean up too. */
+const activeProfiles = new Set();
+
+/**
+ * PIDs of browser processes whose --user-data-dir contains `token`. Only the
+ * user-data-dir argument is matched, so a shell or editor whose command line
+ * merely mentions the token is never counted (or stopped).
+ */
+function processesUsing(token) {
+  if (!/^[A-Za-z0-9-]+$/.test(token)) throw new Error(`unsafe profile token: ${token}`);
+  const pattern = `--user-data-dir=["']?[^"' ]*${token}`;
+  if (process.platform === "win32") {
+    const query = `Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%${token}%'" | Where-Object { $_.CommandLine -match '${pattern.replace(/'/g, "''")}' } | ForEach-Object { $_.ProcessId }`;
+    const out = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", query], { encoding: "utf8" });
+    return (out.stdout || "").split(/\s+/).filter(Boolean).map(Number);
+  }
+  const out = spawnSync("pgrep", ["-f", "--", pattern], { encoding: "utf8" });
+  return (out.stdout || "").split(/\s+/).filter(Boolean).map(Number).filter((pid) => pid !== process.pid);
+}
+
+/** Stops every process of one suite's browser and removes its profile. Safe to call twice. */
+function stopBrowser(profile) {
+  const token = basename(profile);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const pids = processesUsing(token);
+    if (pids.length === 0) break;
+    for (const pid of pids) {
+      if (process.platform === "win32") spawnSync("taskkill", ["/pid", String(pid), "/T", "/F"], { stdio: "ignore" });
+      else {
+        try {
+          process.kill(pid, "SIGKILL");
+        } catch {
+          /* already gone */
+        }
+      }
+    }
+    sleepSync(300);
+  }
+  try {
+    rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  } catch {
+    /* a locked file in the OS temp folder is harmless */
+  }
+  activeProfiles.delete(profile);
+}
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/** Cleans up browsers if the runner is interrupted or fails unexpectedly. */
+function stopAllBrowsers() {
+  for (const profile of [...activeProfiles]) stopBrowser(profile);
+}
+process.on("exit", stopAllBrowsers);
+for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(signal, () => {
+    stopAllBrowsers();
+    process.exit(130);
+  });
 }
 
 function runSuite(browser, port, name) {
-  const profile = mkdtempSync(join(tmpdir(), "aig-browser-test-"));
+  const profile = mkdtempSync(join(tmpdir(), PROFILE_PREFIX));
+  activeProfiles.add(profile);
   const child = spawn(
     browser,
     [
@@ -149,18 +214,14 @@ function runSuite(browser, port, name) {
     { stdio: "ignore" },
   );
   return new Promise((ok) => {
+    let done = false;
     const finish = (text) => {
+      if (done) return;
+      done = true;
       waiting.delete(name);
       clearTimeout(timer);
-      stopBrowser(child);
-      setTimeout(() => {
-        try {
-          rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-        } catch {
-          /* a locked file in the OS temp folder is harmless */
-        }
-        ok(text);
-      }, 300);
+      stopBrowser(profile);
+      ok(text);
     };
     const timer = setTimeout(() => finish(`CRASH timed out after ${TIMEOUT_MS / 1000}s without a result`), TIMEOUT_MS);
     waiting.set(name, finish);
@@ -221,8 +282,12 @@ async function main() {
   }
   server.close();
 
+  // Leak check: no test browser may outlive the run.
+  stopAllBrowsers();
+  const leftover = processesUsing(PROFILE_PREFIX.slice(0, -1));
   console.log(`\n${suites.length - failedSuites}/${suites.length} suites passed, ${checks} checks in total.`);
-  process.exit(failedSuites ? 1 : 0);
+  console.log(`Test browser processes left running: ${leftover.length}${leftover.length ? ` (PIDs ${leftover.join(", ")})` : ""}`);
+  process.exit(failedSuites || leftover.length ? 1 : 0);
 }
 
 main().catch((error) => {
