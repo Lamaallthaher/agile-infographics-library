@@ -70,7 +70,8 @@ export function paletteToEcosystemTheme(p: ThemePalette, options: EcosystemTheme
   const centerText = readableOn(centerFill, "#ffffff", p.inkOnLight, 4.5).fg;
   const centerSubtitle = ensureReadable(mixOklch(centerText, centerFill, 0.22), centerFill, 4.5);
 
-  const connectorBase = o.connector ?? (lightPanel ? mixOklch(p.primary, panel, 0.35) : mixOklch(second, panel, 0.3));
+  // Quiet grey-blue lines in the primary hue (the selected one uses connectorActive).
+  const connectorBase = o.connector ?? (lightPanel ? mixOklch(p.primary, panel, 0.35) : mixOklch(p.mutedStrong, panel, 0.2));
 
   return {
     background,
@@ -91,7 +92,7 @@ export function paletteToEcosystemTheme(p: ThemePalette, options: EcosystemTheme
     centerFill,
     centerRing: withAlpha(lightPanel ? centerFill : second, lightPanel ? 0.16 : 0.3),
     // Solid, muted tone of the palette, clearly lighter (dark scheme) or darker (light scheme) than the panel.
-    ringSegment: ensureReadable(lightPanel ? mixOklch(p.primary, panel, 0.55) : mixOklch(p.mutedStrong, panel, 0.25), panel, 1.8),
+    ringSegment: ensureReadable(lightPanel ? mixOklch(p.primary, panel, 0.55) : mixOklch(p.mutedStrong, panel, 0.12), panel, 2.2),
     centerText,
     centerSubtitle,
     groupFrom,

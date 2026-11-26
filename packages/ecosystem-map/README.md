@@ -215,8 +215,9 @@ its own. It picks a mode from the measured width:
   - top and bottom groups: along a bus in the row gap
   - narrow modes: along the spine
 - **Clean connectors:** thin lines with no text on them. Each one ends in a
-  small port on the card's edge. Arrowheads appear only when the connection
-  has a direction.
+  small open-circle port on the card's edge. Arrowheads are off by default;
+  turn them on with `connectorArrows` ("Direction arrows" in the editor). The
+  direction is always kept in the data and read out by screen readers.
 - **Segmented centre ring:** the default centre has one ring segment per
   visible group (`ringSegments`).
   - The ring rotates so that each segment faces its group, and each connector
@@ -249,6 +250,7 @@ interface EcosystemAppearance {
   groupColoring: "uniform" | "ramp";       // one colour, or progressive shades per group
   collapseAfter: 0 | 4 | 6 | 8;            // 0 = never collapse
   itemDetails: "always" | "selected";      // item descriptions always, or for the selected group only
+  connectorArrows: boolean;                // draw arrowheads for directed connections (default false)
 }
 ```
 

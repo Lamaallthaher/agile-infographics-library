@@ -64,7 +64,7 @@ const DARK_INK = "#10202f";
 const RADIUS = { square: "0.3rem", soft: "0.85rem", round: "1.4rem" } as const;
 const GAP = { compact: "0.65rem", comfortable: "1rem", spacious: "1.5rem" } as const;
 const ZONE = { compact: "clamp(3rem, 6vw, 5.5rem)", comfortable: "clamp(3.5rem, 7.5vw, 7rem)", spacious: "clamp(4rem, 9vw, 8.5rem)" } as const;
-const CENTER_SIZE = { s: "12rem", m: "14.5rem", l: "17rem" } as const;
+const CENTER_SIZE = { s: "10.5rem", m: "12.5rem", l: "15rem" } as const;
 
 /** Read-only text: renders the element, or nothing when the value is empty. */
 function DefaultText({ value, className, as: Tag }: TextSlotProps) {
@@ -274,8 +274,9 @@ export function EcosystemMap({
       const ends = arrowEnds(conn.direction, conn.source === model.center.id);
       const arrows: DrawnLink["arrows"] = [];
       // An arrow into the card stops at the port; an arrow into the centre stops at the ring.
-      if (ends.atGroup) arrows.push({ tip: { x: route.end.x - route.endDir.x * PORT_R, y: route.end.y - route.endDir.y * PORT_R }, dir: route.endDir });
-      if (ends.atCenter) arrows.push({ tip: route.start, dir: { x: -route.startDir.x, y: -route.startDir.y } });
+      // Arrowheads are optional (the default is clean lines with ports); direction stays in the data and accessible text.
+      if (look.connectorArrows && ends.atGroup) arrows.push({ tip: { x: route.end.x - route.endDir.x * PORT_R, y: route.end.y - route.endDir.y * PORT_R }, dir: route.endDir });
+      if (look.connectorArrows && ends.atCenter) arrows.push({ tip: route.start, dir: { x: -route.startDir.x, y: -route.startDir.y } });
       const custom = g.color || look.groupColoring === "ramp";
       links.push({
         groupId: g.id,
@@ -297,7 +298,7 @@ export function EcosystemMap({
       geoKey.current = key;
       setGeo(next);
     }
-  }, [stageRef, model, groups, placement, mode, look.connector, look.groupColoring, groupColors, theme.connector]);
+  }, [stageRef, model, groups, placement, mode, look.connector, look.connectorArrows, look.groupColoring, groupColors, theme.connector]);
 
   // Re-measure after every render (content and layout changes)…
   useLayoutEffect(() => {

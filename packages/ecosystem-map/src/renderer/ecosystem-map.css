@@ -201,10 +201,6 @@
   border-radius: 50%;
 }
 
-/* Without a ring the disc is the whole centre: keep it at the size it had before the ring was added. */
-.em-center:not([data-style="rings"]) {
-  width: min(calc(var(--em-center-size, 13.5rem) * var(--em-scale, 1) * 0.86), 55vw);
-}
 
 .em-center-disc {
   position: relative;
@@ -256,10 +252,12 @@ circle.em-ring-seg.is-active {
 }
 
 .em-center[data-style="rings"] .em-center-disc {
-  width: 72%;
-  height: 72%;
-  padding: 6%;
-  border: 2px solid color-mix(in srgb, var(--em-center-text) 20%, var(--em-center-fill));
+  width: 74%;
+  height: 74%;
+  padding: 4%;
+  /* A deep disc inside the lighter ring, with a thin light rim. */
+  border: 2px solid color-mix(in srgb, var(--em-center-text) 22%, var(--em-center-fill));
+  background: color-mix(in srgb, var(--em-center-fill) 62%, var(--em-panel));
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
 }
 
@@ -298,6 +296,30 @@ circle.em-ring-seg.is-active {
 .em-center[data-len="long"] .em-center-icon svg {
   width: 1.4em;
   height: 1.4em;
+}
+
+/* Inside the ring the disc is smaller: long titles and subtitles get tighter type so they always fit. */
+.em-center[data-style="rings"][data-len="medium"] .em-center-title {
+  font-size: 0.98em;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-disc {
+  gap: 0.15em;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-title {
+  font-size: 0.76em;
+  line-height: 1.12;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-subtitle {
+  font-size: 0.64em;
+  line-height: 1.15;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-icon svg {
+  width: 1.15em;
+  height: 1.15em;
 }
 
 .em-center-subtitle {

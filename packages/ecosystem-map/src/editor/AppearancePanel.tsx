@@ -234,6 +234,15 @@ export function EcosystemAppearancePanel({ appearance: a, theme, onChange, onRes
           ]}
           onChange={(itemDetails) => onChange({ itemDetails })}
         />
+        <Segmented
+          label="Direction arrows"
+          value={a.connectorArrows ? "on" : "off"}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "on", label: "On" },
+          ]}
+          onChange={(v) => onChange({ connectorArrows: v === "on" })}
+        />
       </div>
 
       <details className="eme-advanced">

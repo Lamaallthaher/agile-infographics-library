@@ -152,7 +152,7 @@ async function run() {
     ok('segmented ring: one segment per group, no segment highlighted without a selection', segs.length === 6 && new Set(segs.map(s => s.dataset.ring)).size === 6 && !$('.em-ring-seg.is-active'));
     ok('each connector leaves the ring from its own segment', segs.every(s => diff(segMid(s), startAngle(s.dataset.ring)) < 12), JSON.stringify(segs.map(s => [s.dataset.ring, Math.round(segMid(s)), Math.round(startAngle(s.dataset.ring))])));
   }
-  ok('arrowheads follow the direction (both ways = 2 arrows)', $(`.em-link[data-link="development"]`).querySelectorAll('.em-link-arrow').length === 2 && $(`.em-link[data-link="leadership"]`).querySelectorAll('.em-link-arrow').length === 1);
+  ok('clean connectors by default: no arrowheads; direction kept in data and accessible text', !$('.em-link-arrow') && s0.connections.find(c => c.target === 'development').direction === 'both' && /\(both ways\)/.test(card('development').querySelector('.em-visually-hidden').textContent) && /\(to the centre\)/.test(card('leadership').querySelector('.em-visually-hidden').textContent));
   ok('dashed connector style rendered', $(`.em-link[data-link="other"]`).dataset.style === 'dashed' && getComputedStyle($(`.em-link[data-link="other"] path`)).strokeDasharray !== 'none');
 
   // ---- Inline editing ----
@@ -295,10 +295,15 @@ async function run() {
   click(seg(ins(), 'Line style', 'Dotted')); await wait(60);
   ok('line style Dotted', stored().connections[0].style === 'dotted' && $(`.em-link[data-link="${ids[0]}"]`).dataset.style === 'dotted');
   click(seg(ins(), 'Arrows', 'Both ways')); await wait(60);
-  ok('arrows Both ways: two arrowheads', stored().connections[0].direction === 'both' && $(`.em-link[data-link="${ids[0]}"]`).querySelectorAll('.em-link-arrow').length === 2);
+  ok('arrows Both ways: stored and read out, not drawn by default', stored().connections[0].direction === 'both' && /\(both ways\)/.test(card(ids[0]).querySelector('.em-visually-hidden').textContent) && !$(`.em-link[data-link="${ids[0]}"] .em-link-arrow`));
+  // Optional arrowheads (Appearance → Direction arrows).
+  click([...$('.eme-appearance').querySelector('[role=group][aria-label="Direction arrows"]').querySelectorAll('button')].find(b => b.textContent.trim() === 'On')); await wait(100);
+  ok('Direction arrows On: two arrowheads for both ways', JSON.parse(w.localStorage.getItem(AKEY)).connectorArrows === true && $(`.em-link[data-link="${ids[0]}"]`).querySelectorAll('.em-link-arrow').length === 2);
   click(seg(ins(), 'Arrows', 'To group')); await wait(60);
   const c0 = stored().connections[0];
   ok('arrows To group respects source/target (leadership is the source → backward)', c0.source === ids[0] && c0.direction === 'backward' && $(`.em-link[data-link="${ids[0]}"]`).querySelectorAll('.em-link-arrow').length === 1);
+  click([...$('.eme-appearance').querySelector('[role=group][aria-label="Direction arrows"]').querySelectorAll('button')].find(b => b.textContent.trim() === 'Off')); await wait(100);
+  ok('Direction arrows Off again: clean lines', !$('.em-link-arrow') && JSON.parse(w.localStorage.getItem(AKEY)).connectorArrows === false);
   type(ins().querySelector('input[placeholder^="For example: Reports"]'), 'Sponsors'); await wait(80);
   ok('relationship text edited: stored and read out, never drawn on the map', stored().connections[0].label === 'Sponsors' && /Sponsors/.test(card(ids[0]).querySelector('.em-visually-hidden').textContent) && !$('.em-link-label') && !/Sponsors/.test(visibleText($('.em-stage'))));
   const colour = ins().querySelector('input[aria-label="Group colour"]'); type(colour, '#d97706'); await wait(80);
