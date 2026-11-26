@@ -113,8 +113,48 @@
 }
 
 /* ---------- Inline fields inside the map ---------- */
-.pa.is-editable :is(.pa-group, .pa-card, .pa-l0, .pa-level-head):not(:hover):not(:focus-within) .is-empty {
+.pa.is-editable :is(.pa-group, .pa-card, .pa-l0, .pa-level-head, .pa-head, .pa-callout):not(:hover):not(:focus-within) .is-empty {
   display: none;
+}
+
+.pa.is-editable .pa-kicker.te-field {
+  color: var(--pa-accent);
+}
+
+/* Structure view fields: centred in the shapes and pills, inheriting their colours. */
+.ed-scope .pa-shape .te-field {
+  width: 100%;
+  margin: 0;
+  color: inherit;
+  font-weight: 700;
+  text-align: center;
+}
+
+.ed-scope .pa-shape .te-field::placeholder,
+.ed-scope .pa-callout-title.te-field::placeholder {
+  color: currentColor;
+  opacity: 0.7;
+}
+
+.ed-scope .pa-level-pill.te-field {
+  width: 8em;
+  margin: 0;
+  padding: 0.35em 0.6em;
+  border: 1.5px dashed color-mix(in srgb, var(--pa-heading) 55%, transparent);
+  text-align: center;
+}
+
+.ed-scope .pa-callout-title.te-field {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  color: inherit;
+}
+
+.ed-scope .pa-callout-title.te-field:hover,
+.ed-scope .pa-callout-title.te-field:focus {
+  border-color: currentColor;
+  background: transparent;
 }
 
 .pa.is-editable .pa-group,

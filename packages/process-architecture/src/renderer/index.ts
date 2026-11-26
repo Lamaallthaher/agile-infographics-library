@@ -1,10 +1,13 @@
 export { ProcessArchitecture } from "./ProcessArchitecture";
 export type { ProcessArchitectureProps } from "./ProcessArchitecture";
 export {
+  boldRuns,
   CATEGORY_LABELS,
   countNodes,
+  DEFAULT_LEVELS,
   DEFAULT_PROCESS_APPEARANCE,
   DEFAULT_PROCESS_LIMITS,
+  DEFAULT_SCOPES,
   EMPTY_PATH,
   findNode,
   GROUP_CATEGORIES,
@@ -17,12 +20,15 @@ export {
   PROCESS_OVERRIDE_KEYS,
   PROCESS_OVERRIDE_LABELS,
   PROCESS_STATUSES,
+  PROCESS_VIEWS,
   resolveAppearance,
   resolvePath,
   STATUS_LABELS,
+  structureBands,
   TITLE_WEIGHTS,
   TYPE_SCALES,
   validateProcessArchitecture,
+  VIEW_LABELS,
 } from "./model";
 export type { FoundNode, NormalizeResult, ProcessIssue } from "./model";
 export { checkProcessContrast, groupNodeColors, paletteToProcessTheme, processThemeToCssVars } from "./theme";
@@ -39,6 +45,8 @@ export type {
   FieldRef,
   GroupCategory,
   GroupShape,
+  LevelDefinition,
+  LevelDefinitionInput,
   NavigationMode,
   NodeData,
   NodeInput,
@@ -57,6 +65,9 @@ export type {
   ProcessSlots,
   ProcessStatus,
   ProcessTheme,
+  ProcessView,
+  Scope,
+  ScopeInput,
   TextSlotProps,
   ValueChain,
   ValueChainInput,

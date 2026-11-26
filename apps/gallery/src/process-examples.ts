@@ -9,8 +9,28 @@ const steps = (prefix: string, titles: string[], owners: string[] = []): Activit
 
 export const PROCESS_EXAMPLE: ProcessArchitectureInput = {
   version: 1,
+  kicker: "Operating model design · Process architecture",
   title: "IT service process architecture",
-  subtitle: "Value chains (L0), process groups (L1), processes (L2) and activities (L3) of an IT service organisation.",
+  subtitle:
+    "The hierarchy below shows the four levels of the process architecture: the levels set out in the architecture structure, and the level detailed later in process-by-process design.",
+  levels: [
+    { label: "Level Zero", name: "Value chain", description: "Shows how the IT organisation **delivers value** from demand to running services." },
+    { label: "Level One", name: "Process group", description: "Collects related processes into **clear areas of responsibility**." },
+    { label: "Level Two", name: "Process", description: "Names the **processes in each group**, each with a defined purpose and outputs." },
+    { label: "Level Three", name: "Activity", description: "Describes the **steps, roles and decisions** that make up each process." },
+  ],
+  scopes: [
+    {
+      title: "Architecture structure — value chain to process",
+      description: "Sets out the value chain, the process groups and the processes, and links them to the capabilities they rely on.",
+      levels: [0, 1, 2],
+    },
+    {
+      title: "Detailed design — activities and controls",
+      description: "Designs the activities, roles and decision points of each process, one process at a time.",
+      levels: [3],
+    },
+  ],
   valueChains: [
     {
       id: "vc-it",

@@ -10,6 +10,8 @@ import {
   PROCESS_OVERRIDE_KEYS,
   PROCESS_OVERRIDE_LABELS,
   PROCESS_STATUSES,
+  PROCESS_VIEWS,
+  VIEW_LABELS,
   STATUS_LABELS,
   TITLE_WEIGHTS,
   TYPE_SCALES,
@@ -132,6 +134,12 @@ export function ProcessAppearancePanel({ appearance: a, theme, onChange, onReset
           <p className="te-hint">Accents, activity numbers and the last core group.</p>
         </div>
         <Segmented label="Colour scheme" value={a.scheme} options={[{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }]} onChange={(scheme) => onChange({ scheme })} />
+        <Segmented
+          label="Opening view"
+          value={a.defaultView}
+          options={PROCESS_VIEWS.map((v) => ({ value: v, label: VIEW_LABELS[v] }))}
+          onChange={(defaultView) => onChange({ defaultView })}
+        />
         <Segmented
           label="Navigation"
           value={a.navigation}

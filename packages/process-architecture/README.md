@@ -1,7 +1,18 @@
 # @agile-infographics/process-architecture
 
 **Process Architecture Map**: an editable React infographic for a four-level
-process hierarchy.
+process hierarchy, in three views chosen with a numbered tab bar:
+
+1. **Structure & levels.** The levels as a pyramid:
+   - an apex triangle (L0), trapezoids (L1, L2) and a wider dark base (L3);
+   - each level with a dashed label pill, an arrow and a description (key
+     phrases in bold);
+   - levels grouped into **scope bands**. The first band has a dashed accent
+     outline, later bands are shaded, and each band has a callout card.
+2. **Process groups by stage.** The value chain and its process house, with
+   drill-down to processes and activities.
+3. **Full architecture.** Every group with all its processes and activities
+   at once, numbered.
 
 | Level | Name | Shown as |
 |---|---|---|
@@ -13,6 +24,8 @@ process hierarchy.
 - **Content comes entirely from data.** The component has no built-in wording,
   so it can show an IT service value chain, an enterprise operating model, a
   manufacturing process model or any other process architecture.
+- **Views:** in the structure view, selecting a level's shape opens the view
+  for that level. In the full view, selecting a process drills into it.
 - **Navigation:** viewers drill down by selecting a group, then a process.
   - A breadcrumb, **Up one level** and <kbd>Esc</kbd> lead back.
   - The selected path's levels are shown one under another ("All levels"), or
@@ -93,6 +106,7 @@ export function ProcessPage() {
 | `theme?` | `Partial<ProcessTheme>` | Final colour overrides on top of the generated theme. |
 | `limits?` | `ProcessArchitectureLimits` | Counts and field lengths. Default: `DEFAULT_PROCESS_LIMITS`. |
 | `path?` / `onNavigate?` | `Partial<ProcessPath>` / `(path) => void` | Controlled navigation (`valueChainId`, `groupId`, `processId`, `activityId`). Omit both to let the map manage it. |
+| `view?` / `onViewChange?` | `"structure" \| "groups" \| "full"` / `(view) => void` | Controlled view. Omit both to let the map manage it; the first view is `appearance.defaultView`. |
 | `expandedIds?` / `onToggleExpanded?` | `string[]` / `(id, expanded) => void` | Controlled expansion of groups and processes. |
 
 What a viewer can do:
@@ -133,6 +147,7 @@ import { ProcessArchitectureEditor, DEFAULT_PROCESS_ARCHITECTURE } from "@agile-
 | To… | Do this |
 |---|---|
 | Edit a title or description | Click it on the map, at any level. Required titles are restored if left empty. |
+| Edit the structure view | In **Structure & levels**, click the kicker, a level's name (in its shape), label (pill) or description, or a scope callout's title or description. Wrap key phrases in `**double asterisks**` to show them in bold. |
 | Select a node | Click it. The **inspector** below the map edits its owner, status, tags, code (replaces the automatic number) and link (validated). For a group it also edits the category, colour and icon. |
 | Add | **Add value chain** next to the tabs, **Add management / core / support group** at the end of each row, **Add process**, **Add activity**. Hover a node for **+** to insert after it. New nodes are selected and their title is ready for typing. |
 | Reorder | Hover a node for ‹ › (groups move within their own row). |
@@ -156,8 +171,19 @@ interface NodeInput {                    // shared by every level
 
 interface ProcessArchitectureInput {
   version?: 1;
+  kicker?: string;                       // small uppercase line above the view tabs
   title?: string;
-  subtitle?: string;
+  subtitle?: string;                     // description under "title | view"
+  levels?: {                             // L0–L3 (index = level); missing fields use generic defaults
+    label?: string;                      // dashed pill, e.g. "Level Zero"
+    name?: string;                       // inside the pyramid shape, e.g. "Value chain"
+    description?: string;                // **double asterisks** mark bold key phrases
+  }[];
+  scopes?: {                             // up to 3 bands; omitted = generic defaults, [] = no callouts
+    title: string;                       // callout chip
+    description?: string;
+    levels: number[];                    // levels 0–3 in this band (each level in at most one scope)
+  }[];
   valueChains: (NodeInput & {                                    // L0, 1–6
     groups?: (NodeInput & {                                      // L1, up to 16 per chain
       category?: "management" | "core" | "support";              // default "core"
@@ -180,6 +206,11 @@ interface ProcessArchitectureInput {
   - **Warnings** report a correction: missing or duplicate ids (made unique
     across all levels), text that was too long and has been shortened, an
     unknown status, category or icon, an unsafe link, or invalid tags.
+- **Structure view data:** a level used by two scopes, or a number that is not
+  a level, is reported and ignored. More than 3 scopes is an error. Levels in
+  no scope form a band without a callout. `DEFAULT_LEVELS` and
+  `DEFAULT_SCOPES` hold the generic defaults, and `structureBands(data)` returns
+  the bands in display order.
 - **Hierarchy helpers:** `findNode(data, id)` (level, path and position),
   `resolvePath(data, path)`, `numberingFor(chain)` (1, 1.2, 1.2.3) and
   `countNodes(chain)`.
@@ -194,7 +225,7 @@ interface ProcessAppearance {
   secondary: string | null;              // accents, activity numbers, last core group; null = derived
   scheme: "dark" | "light";
   overrides: Partial<Record<"background" | "panel" | "surface" | "heading" | "text" | "accent"
-                          | "valueChain" | "coreFrom" | "coreTo" | "management" | "support", string>>;
+                          | "valueChain" | "coreFrom" | "coreTo" | "management" | "support" | "scope", string>>;
   typography: { scale: 0.9 | 1 | 1.1 | 1.2; titleWeight: 600 | 700 | 800 };
   navigation: "cascade" | "focus";       // all levels of the selected path, or one level at a time
   groupShape: "chevron" | "block";       // shape of core groups
@@ -204,6 +235,7 @@ interface ProcessAppearance {
   expandDefault: "collapsed" | "expanded";   // groups list their processes on the overview
   activityLayout: "flow" | "list";       // numbered flow or vertical timeline
   numbering: boolean;                    // automatic 1 / 1.2 / 1.2.3 numbers
+  defaultView: "structure" | "groups" | "full";   // the view shown first
 }
 ```
 
@@ -212,6 +244,11 @@ interface ProcessAppearance {
   - Text you haven't overridden is re-checked for contrast.
   - Theme-generated group and step colours are darkened just enough for their
     labels to reach 4.5:1 (`groupNodeColors`).
+  - The pyramid shapes (`level0`–`level3`) use light-to-dark tones of the
+    primary hue.
+  - The first scope band uses a warm `scope` accent opposite the primary hue
+    (overridable as "Scope highlight"); later bands use `detailBand`.
+  - Shape labels and callout chips always get a readable label colour.
   - `checkProcessContrast()` lists the key pairs, and the editor shows a
     warning when a manual override falls below 4.5:1.
 - **Responsive:** the layout uses container queries, so it adapts to the

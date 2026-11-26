@@ -47,34 +47,394 @@
   outline-offset: 2px;
 }
 
-/* ---------- Heading ---------- */
+/* ---------- Heading (inside the panel): kicker, view tabs, title | view, description ---------- */
 .pa-head {
   display: grid;
-  justify-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85em;
+  min-width: 0;
 }
 
-.pa-title {
-  color: var(--pa-heading-on-bg);
-  font-size: 1.6em;
-  font-weight: var(--pa-title-weight, 700);
-  line-height: 1.2;
+.pa-kicker {
+  color: var(--pa-accent);
+  font-size: 0.78em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.pa-title-bar {
-  display: block;
-  width: 3.6rem;
-  height: 4px;
-  margin: 0.5em 0 0.15em;
-  border-radius: 99px;
+.pa-views {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.35em;
+  padding: 0.3em;
+  border: 1px solid var(--pa-panel-border);
+  border-radius: 0.75em;
+}
+
+.pa-view-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 0;
+  padding: 0.55em 0.75em;
+  border: 1px solid transparent;
+  border-radius: 0.55em;
+  background: transparent;
+  color: var(--pa-text);
+  font: inherit;
+  font-size: 0.9em;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pa-view-tab:hover {
+  border-color: var(--pa-panel-border);
+}
+
+.pa-view-tab[aria-selected="true"] {
+  border-color: var(--pa-selected);
+  background: color-mix(in srgb, var(--pa-level3) 55%, var(--pa-panel));
+  color: var(--pa-heading);
+}
+
+.pa-view-no {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.75em;
+  height: 1.75em;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--pa-text) 12%, transparent);
+  font-size: 0.85em;
+  font-weight: 800;
+}
+
+.pa-view-tab[aria-selected="true"] .pa-view-no {
   background: var(--pa-selected);
+  color: var(--pa-panel);
+}
+
+.pa-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.5em;
+  min-width: 0;
+}
+
+.pa-title,
+.pa-title-view {
+  color: var(--pa-heading-on-bg);
+  font-size: 1.45em;
+  font-weight: calc(var(--pa-title-weight, 700) - 200);
+  line-height: 1.25;
+}
+
+.pa-title-view::before {
+  content: "| ";
+}
+
+/* The editable title hugs its text so "| view" stays right after it. */
+.pa.is-editable .pa-title-row .pa-title {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 100%;
+  field-sizing: content;
 }
 
 .pa-subtitle {
-  max-width: 60rem;
-  margin-top: 0.45em;
-  color: var(--pa-subtitle-on-bg);
-  font-size: 0.98em;
-  line-height: 1.55;
+  max-width: 68rem;
+  color: var(--pa-heading-on-bg);
+  font-size: 0.95em;
+  line-height: 1.65;
+  opacity: 0.92;
+}
+
+.pa-view {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--pa-gap) + 0.4em);
+  min-width: 0;
+}
+
+/* ---------- "Structure & levels": pyramid, level pills, arrows, scope bands ---------- */
+.pa-structure {
+  display: grid;
+  min-width: 0;
+}
+
+.pa-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(11em, 15.5em);
+  align-items: center;
+  gap: 1.2em 1.6em;
+  padding: 1.1em 1.3em 1.1em 0.9em;
+  border-radius: 0.35em;
+}
+
+/* The first scope is outlined with a dashed accent; later bands sit on a shaded strip below it. */
+.pa-band:first-child[data-scoped] {
+  border: 1.5px dashed var(--pa-scope);
+}
+
+.pa-band:not(:first-child) {
+  border-radius: 0 0 0.6em 0.6em;
+  background: var(--pa-detail-band);
+}
+
+.pa-band-rows {
+  display: grid;
+  gap: 0.75em;
+  min-width: 0;
+}
+
+.pa-srow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: 1.4em;
+  min-width: 0;
+}
+
+.pa-shape-cell {
+  min-width: 0;
+}
+
+.pa-shape {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 4.4em;
+  padding: 0 1.5em;
+  border: 0;
+  font: inherit;
+  font-size: 0.95em;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+button.pa-shape {
+  cursor: pointer;
+}
+
+button.pa-shape:hover {
+  filter: brightness(1.07);
+}
+
+button.pa-shape:focus-visible {
+  outline: 2px solid var(--pa-focus);
+  outline-offset: 3px;
+}
+
+/* The apex triangle carries its name near the base, where there is room. */
+.pa-srow[data-level="0"] .pa-shape {
+  align-items: end;
+  padding-bottom: 0.55em;
+}
+
+.pa-srow-text {
+  display: grid;
+  grid-template-columns: 7.2em 3.4em minmax(0, 1fr);
+  align-items: center;
+  gap: 0.9em;
+  min-width: 0;
+}
+
+.pa-pill-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.pa-level-pill {
+  display: inline-block;
+  padding: 0.35em 0.85em;
+  border: 1.5px dashed color-mix(in srgb, var(--pa-heading) 55%, transparent);
+  border-radius: 0.45em;
+  color: var(--pa-heading);
+  font-size: 0.95em;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.pa-arrow {
+  position: relative;
+  height: 2px;
+  background: var(--pa-selected);
+}
+
+.pa-arrow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -1px;
+  width: 0.55em;
+  height: 0.55em;
+  border-top: 2px solid var(--pa-selected);
+  border-right: 2px solid var(--pa-selected);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.pa-level-text {
+  color: var(--pa-heading);
+  font-size: 0.9em;
+  line-height: 1.6;
+}
+
+.pa-level-text strong {
+  font-weight: 800;
+}
+
+.pa-callout {
+  display: grid;
+  align-self: center;
+  gap: 0.55em;
+  min-width: 0;
+  padding: 0.75em 0.8em 0.9em;
+  border-radius: 0.6em;
+  background: color-mix(in srgb, var(--pa-panel) 70%, #000);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.pa[data-scheme="light"] .pa-callout {
+  background: var(--pa-surface);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+/* Chip colours are set inline from the theme, with a readable label colour. */
+.pa-callout-chip {
+  padding: 0.35em 0.6em;
+  border-radius: 0.3em;
+}
+
+.pa-band:not(:first-child) .pa-callout-chip {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pa-heading) 18%, transparent);
+}
+
+.pa-callout-title {
+  font-size: 0.85em;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.pa-callout-text {
+  color: var(--pa-heading);
+  font-size: 0.85em;
+  line-height: 1.6;
+}
+
+/* ---------- "Full architecture": every group with its processes and activities ---------- */
+.pa-full {
+  display: grid;
+  gap: var(--pa-gap);
+}
+
+.pa-full-row {
+  display: grid;
+  grid-template-columns: 7.5em minmax(0, 1fr);
+  gap: var(--pa-gap);
+}
+
+.pa-full-row-label {
+  display: flex;
+  align-items: flex-start;
+  padding: 0.6em 0.5em 0 0;
+  border-right: 2px solid var(--pa-panel-border);
+  color: var(--pa-text-muted);
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.pa-full-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr));
+  gap: 0.6em;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-full-group {
+  display: grid;
+  align-content: start;
+  gap: 0.45em;
+  min-width: 0;
+  padding: 0.65em 0.75em 0.8em;
+  border: 1px solid var(--pa-surface-border);
+  border-top: 4px solid var(--node);
+  border-radius: calc(var(--pa-radius) * 0.6);
+  background: var(--pa-surface);
+}
+
+.pa-full-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  color: var(--pa-heading);
+  font-size: 0.92em;
+  font-weight: var(--pa-title-weight, 700);
+  line-height: 1.3;
+}
+
+.pa-full-processes {
+  display: grid;
+  gap: 0.4em;
+  padding: 0;
+  list-style: none;
+}
+
+.pa-full-process-title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+  width: 100%;
+  padding: 0.25em 0.35em;
+  border: 0;
+  border-radius: 0.3em;
+  background: color-mix(in srgb, var(--node) 16%, transparent);
+  color: var(--pa-text);
+  font: inherit;
+  font-size: 0.82em;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pa-full-process-title:hover {
+  background: color-mix(in srgb, var(--node) 30%, transparent);
+}
+
+.pa-full-process-title:focus-visible {
+  outline: 2px solid var(--pa-focus);
+  outline-offset: 1px;
+}
+
+.pa-full-activities {
+  display: grid;
+  gap: 0.15em;
+  margin: 0.25em 0 0 0.45em;
+  padding: 0 0 0 0.6em;
+  border-left: 2px solid color-mix(in srgb, var(--node) 55%, transparent);
+  color: var(--pa-text-muted);
+  font-size: 0.75em;
+  line-height: 1.4;
+  list-style: none;
+}
+
+.pa-full-activities li,
+.pa-full-group-head {
+  display: flex;
+  gap: 0.35em;
+}
+
+.pa-full-empty {
+  color: var(--pa-text-muted);
+  font-size: 0.8em;
 }
 
 /* ---------- Panel, value-chain tabs, breadcrumb ---------- */
@@ -93,6 +453,10 @@
 
 .pa > .pa-panel:first-child {
   margin-top: 0;
+}
+
+.pa-panel > .pa-head + .pa-view {
+  margin-top: 0.4em;
 }
 
 .pa-chains {
@@ -897,6 +1261,39 @@ button.pa-crumb:hover {
 
 /* ---------- Narrow containers ---------- */
 @container pa (max-width: 760px) {
+  .pa-views {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pa-band {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.9em;
+  }
+
+  .pa-srow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.6em;
+  }
+
+  .pa-shape-cell {
+    width: min(100%, 26em);
+    margin-inline: auto;
+  }
+
+  .pa-srow-text {
+    grid-template-columns: auto 2.4em minmax(0, 1fr);
+  }
+
+  .pa-full-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pa-full-row-label {
+    padding: 0 0 0.2em;
+    border-right: 0;
+    border-bottom: 2px solid var(--pa-panel-border);
+  }
+
   .pa-row {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -934,6 +1331,16 @@ button.pa-crumb:hover {
 
   .pa[data-activity-layout="flow"] .pa-step::after {
     display: none;
+  }
+}
+
+@container pa (max-width: 480px) {
+  .pa-srow-text {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .pa-srow-text .pa-level-text {
+    grid-column: 1 / -1;
   }
 }
 

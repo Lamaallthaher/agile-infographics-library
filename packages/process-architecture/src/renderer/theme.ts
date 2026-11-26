@@ -77,6 +77,15 @@ export function paletteToProcessTheme(p: ThemePalette, options: ProcessThemeOpti
     connector: ensureReadable(lightPanel ? mixOklch(p.primary, panel, 0.45) : mixOklch(second, panel, 0.4), panel, 1.8),
     selected: ensureReadable(second, panel, 3),
     focus: ensureReadable(lightPanel ? p.primary : p.focus, panel, 3),
+    // Pyramid of the "Structure & levels" view: a light top (L0), a mid tone (L1), a near-white
+    // base (L2) and a dark, deeper L3 — all in the primary hue.
+    level0: light ? oklchToHex({ l: 0.66, c: Math.min(base.c * 0.9, 0.08), h: (base.h + 345) % 360 }) : oklchToHex({ l: 0.7, c: Math.min(base.c * 0.75, 0.07), h: (base.h + 345) % 360 }),
+    level1: light ? oklchToHex({ l: 0.58, c: Math.min(base.c * 0.45, 0.04), h: base.h }) : oklchToHex({ l: 0.64, c: Math.min(base.c * 0.4, 0.035), h: base.h }),
+    level2: light ? oklchToHex({ l: 0.84, c: Math.min(base.c * 0.25, 0.025), h: base.h }) : oklchToHex({ l: 0.93, c: Math.min(base.c * 0.15, 0.012), h: base.h }),
+    level3: light ? p.primary : oklchToHex({ l: 0.36, c: Math.min(base.c * 0.95, 0.08), h: base.h }),
+    // A warm accent opposite the primary marks the first scope band (dashed outline, callout chip).
+    scope: o.scope ?? ensureReadable(oklchToHex({ l: light ? 0.5 : 0.55, c: 0.17, h: (base.h + 135) % 360 }), panel, 3),
+    detailBand: light ? mixOklch(panel, p.primary, 0.07) : mixOklch(panel, p.mutedStrong, 0.22),
     fontFamily: FONT,
   };
 }
@@ -89,6 +98,9 @@ export function paletteToProcessTheme(p: ThemePalette, options: ProcessThemeOpti
  */
 export function groupNodeColors(bg: string, custom = false): { bg: string; fg: string } {
   const best = readableOn(bg, "#ffffff", DARK_INK, 4.5);
+  // A light tone keeps its colour and takes dark text when dark text passes.
+  const dark = readableOn(bg, DARK_INK, DARK_INK, 4.5);
+  if (!best.passes && dark.passes) return { bg, fg: DARK_INK };
   if (best.passes || custom) return { bg, fg: best.fg };
   return { bg: ensureReadable(bg, "#ffffff", 4.5), fg: "#ffffff" };
 }
@@ -119,6 +131,12 @@ const VAR_NAMES: Record<keyof ProcessTheme, string> = {
   connector: "--pa-connector",
   selected: "--pa-selected",
   focus: "--pa-focus",
+  level0: "--pa-level0",
+  level1: "--pa-level1",
+  level2: "--pa-level2",
+  level3: "--pa-level3",
+  scope: "--pa-scope",
+  detailBand: "--pa-detail-band",
   fontFamily: "--pa-font",
 };
 
@@ -152,6 +170,11 @@ export function checkProcessContrast(t: ProcessTheme): ContrastCheck[] {
     ["Management groups", group(t.management).fg, group(t.management).bg, 4.5],
     ["Support groups", group(t.support).fg, group(t.support).bg, 4.5],
     ["Activity numbers", t.stepText, t.step, 4.5],
+    ["Level 0 shape", group(t.level0).fg, group(t.level0).bg, 4.5],
+    ["Level 1 shape", group(t.level1).fg, group(t.level1).bg, 4.5],
+    ["Level 2 shape", group(t.level2).fg, group(t.level2).bg, 4.5],
+    ["Level 3 shape", group(t.level3).fg, group(t.level3).bg, 4.5],
+    ["Scope callout title", group(t.scope).fg, group(t.scope).bg, 4.5],
   ];
   return pairs.map(([name, fg, bg, min]) => {
     const ratio = Math.round(contrast(fg, bg) * 100) / 100;

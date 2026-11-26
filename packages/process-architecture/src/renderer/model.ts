@@ -2,6 +2,7 @@ import { DEFAULT_PRIMARY, isIconKey, newId, normalizeHex, type IconKey } from "@
 import type {
   Activity,
   GroupCategory,
+  LevelDefinition,
   NodeData,
   Process,
   ProcessAppearance,
@@ -13,6 +14,8 @@ import type {
   ProcessOverrides,
   ProcessPath,
   ProcessStatus,
+  ProcessView,
+  Scope,
   ValueChain,
 } from "./types";
 
@@ -29,8 +32,53 @@ export const DEFAULT_PROCESS_LIMITS: ProcessArchitectureLimits = {
   maxProcesses: 24,
   maxActivities: 30,
   maxTags: 8,
-  maxLength: { title: 100, subtitle: 220, nodeTitle: 80, description: 400, owner: 80, tag: 24, code: 16, href: 500 },
+  maxScopes: 3,
+  maxLength: {
+    kicker: 80,
+    levelLabel: 24,
+    levelName: 40,
+    levelDescription: 240,
+    scopeTitle: 80,
+    scopeDescription: 240,
+    title: 100,
+    subtitle: 220,
+    nodeTitle: 80,
+    description: 400,
+    owner: 80,
+    tag: 24,
+    code: 16,
+    href: 500,
+  },
 };
+
+/** Generic level definitions used when the data has none (index = level). */
+export const DEFAULT_LEVELS: readonly LevelDefinition[] = [
+  { label: "Level Zero", name: "Value chain", description: "Shows how the organisation **creates value** from end to end." },
+  { label: "Level One", name: "Process group", description: "Clusters related processes into **coherent areas of work**." },
+  { label: "Level Two", name: "Process", description: "Defines each **individual process** in a group, with its purpose and outputs." },
+  { label: "Level Three", name: "Activity", description: "Breaks each process into the **steps, roles and decisions** that carry it out." },
+];
+
+/** Generic scope bands used when the data has none. */
+export const DEFAULT_SCOPES: readonly Scope[] = [
+  { title: "Architecture structure", description: "Value chains, process groups and processes: the stable frame of the model.", levels: [0, 1, 2] },
+  { title: "Detailed process design", description: "Activities, roles and decision points, designed process by process.", levels: [3] },
+];
+
+export const VIEW_LABELS: Record<ProcessView, string> = { structure: "Structure & levels", groups: "Process groups by stage", full: "Full architecture" };
+export const PROCESS_VIEWS: readonly ProcessView[] = ["structure", "groups", "full"];
+
+/** Splits text with **bold** markers into plain and bold runs. Unmatched markers stay as text. */
+export function boldRuns(text: string): { text: string; bold: boolean }[] {
+  const parts = text.split("**");
+  if (parts.length < 3) return [{ text, bold: false }];
+  const runs: { text: string; bold: boolean }[] = [];
+  parts.forEach((p, i) => {
+    const bold = i % 2 === 1 && i < parts.length - 1;
+    if (p) runs.push({ text: bold || i % 2 === 0 ? p : `**${p}`, bold });
+  });
+  return runs;
+}
 
 export const PROCESS_STATUSES: readonly ProcessStatus[] = ["", "active", "planned", "in-review", "retired"];
 export const STATUS_LABELS: Record<ProcessStatus, string> = { "": "No status", active: "Active", planned: "Planned", "in-review": "In review", retired: "Retired" };
@@ -203,8 +251,57 @@ export function normalizeProcessArchitecture(raw: unknown, limits: ProcessArchit
     valueChains.push({ ...chain, groups });
   }
 
+  // Level definitions: four entries, each field falling back to the generic default.
+  let rawLevels: unknown[] = [];
+  if (Array.isArray(raw.levels)) rawLevels = raw.levels;
+  else if (raw.levels !== undefined) warn("levels", "levels must be a list; defaults used");
+  const levels: LevelDefinition[] = DEFAULT_LEVELS.map((def, i) => {
+    const l = rawLevels[i];
+    if (l === undefined || l === null) return { ...def };
+    if (!isObj(l)) {
+      warn(`levels[${i}]`, "not an object; default used");
+      return { ...def };
+    }
+    const pick = (v: unknown, max: number, key: string, fb: string) => (v === undefined || v === null ? fb : text(v, max, `levels[${i}].${key}`));
+    return { label: pick(l.label, L.levelLabel, "label", def.label), name: pick(l.name, L.levelName, "name", def.name), description: pick(l.description, L.levelDescription, "description", def.description) };
+  });
+  if (rawLevels.length > 4) warn("levels", "only four levels (L0–L3) exist; the rest were ignored");
+
+  // Scopes: each level in at most one band.
+  let scopes: Scope[] = DEFAULT_SCOPES.map((sc) => ({ ...sc, levels: [...sc.levels] }));
+  if (raw.scopes !== undefined) {
+    if (!Array.isArray(raw.scopes)) return fail("scopes", "scopes must be a list");
+    if (raw.scopes.length > limits.maxScopes) return fail("scopes", `${raw.scopes.length} scopes; at most ${limits.maxScopes} are supported`);
+    const used = new Set<number>();
+    scopes = [];
+    raw.scopes.forEach((sc, si) => {
+      const sp = `scopes[${si}]`;
+      if (!isObj(sc)) return void warn(sp, "not an object; ignored");
+      const lv = Array.isArray(sc.levels) ? sc.levels : [];
+      const own: number[] = [];
+      for (const n of lv) {
+        if (typeof n !== "number" || !Number.isInteger(n) || n < 0 || n > 3) warn(`${sp}.levels`, `"${String(n)}" is not a level (0–3); ignored`);
+        else if (used.has(n)) warn(`${sp}.levels`, `level ${n} already belongs to another scope; ignored`);
+        else {
+          used.add(n);
+          own.push(n);
+        }
+      }
+      if (!own.length) return void warn(sp, "has no levels; ignored");
+      scopes.push({ title: text(sc.title, L.scopeTitle, `${sp}.title`, true), description: text(sc.description, L.scopeDescription, `${sp}.description`), levels: own.sort((a, b) => a - b) });
+    });
+  }
+
   return {
-    data: { version: 1, title: text(raw.title, L.title, "title"), subtitle: text(raw.subtitle, L.subtitle, "subtitle"), valueChains },
+    data: {
+      version: 1,
+      kicker: text(raw.kicker, L.kicker, "kicker"),
+      title: text(raw.title, L.title, "title"),
+      subtitle: text(raw.subtitle, L.subtitle, "subtitle"),
+      levels,
+      scopes,
+      valueChains,
+    },
     issues,
   };
 }
@@ -264,6 +361,19 @@ export function resolvePath(data: ProcessArchitectureData, path: Partial<Process
   return { valueChainId: chain?.id ?? null, groupId: group?.id ?? null, processId: process?.id ?? null, activityId: activity?.id ?? null };
 }
 
+/**
+ * The bands of the "Structure & levels" view, top to bottom: each scope's
+ * levels with its callout, and any levels in no scope as a band of their own.
+ * Bands are ordered by their first level.
+ */
+export function structureBands(data: ProcessArchitectureData): { levels: ProcessLevel[]; scope: Scope | null; scopeIndex: number }[] {
+  const bands: { levels: ProcessLevel[]; scope: Scope | null; scopeIndex: number }[] = data.scopes.map((sc, i) => ({ levels: sc.levels as ProcessLevel[], scope: sc, scopeIndex: i }));
+  const covered = new Set(data.scopes.flatMap((sc) => sc.levels));
+  const rest = ([0, 1, 2, 3] as ProcessLevel[]).filter((l) => !covered.has(l));
+  if (rest.length) bands.push({ levels: rest, scope: null, scopeIndex: -1 });
+  return bands.sort((a, b) => a.levels[0] - b.levels[0]);
+}
+
 /** Hierarchical numbers: group "2", process "2.3", activity "2.3.1". Core groups are numbered in their own sequence order. */
 export function numberingFor(chain: ValueChain): Map<string, string> {
   const map = new Map<string, string>();
@@ -301,6 +411,7 @@ export const PROCESS_OVERRIDE_KEYS: readonly ProcessOverrideKey[] = [
   "coreTo",
   "management",
   "support",
+  "scope",
 ];
 
 export const PROCESS_OVERRIDE_LABELS: Record<ProcessOverrideKey, string> = {
@@ -315,6 +426,7 @@ export const PROCESS_OVERRIDE_LABELS: Record<ProcessOverrideKey, string> = {
   coreTo: "Last core group",
   management: "Management groups",
   support: "Support groups",
+  scope: "Scope highlight",
 };
 
 export const TYPE_SCALES = [
@@ -346,6 +458,7 @@ export const DEFAULT_PROCESS_APPEARANCE: ProcessAppearance = {
   expandDefault: "collapsed",
   activityLayout: "flow",
   numbering: true,
+  defaultView: "structure",
 };
 
 /** Completes a partial appearance (client props) with defaults; invalid values fall back. */
@@ -386,5 +499,6 @@ export function parseAppearance(raw: unknown, fallback: ProcessAppearance = DEFA
     expandDefault: pick(raw.expandDefault, ["collapsed", "expanded"] as const, fallback.expandDefault),
     activityLayout: pick(raw.activityLayout, ["flow", "list"] as const, fallback.activityLayout),
     numbering: pick(raw.numbering, [true, false] as const, fallback.numbering),
+    defaultView: pick(raw.defaultView, ["structure", "groups", "full"] as const, fallback.defaultView),
   };
 }

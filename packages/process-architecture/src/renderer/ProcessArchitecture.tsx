@@ -1,6 +1,7 @@
 import { useCallback, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { colorRamp, generatePalette, icons, type IconKey } from "@agile-infographics/core";
 import {
+  boldRuns,
   CATEGORY_LABELS,
   countNodes,
   DEFAULT_PROCESS_LIMITS,
@@ -9,7 +10,10 @@ import {
   numberingFor,
   resolveAppearance,
   resolvePath,
+  PROCESS_VIEWS,
   STATUS_LABELS,
+  structureBands,
+  VIEW_LABELS,
 } from "./model";
 import { groupNodeColors, paletteToProcessTheme, processThemeToCssVars } from "./theme";
 import type {
@@ -26,6 +30,7 @@ import type {
   ProcessPath,
   ProcessSlots,
   ProcessTheme,
+  ProcessView,
   TextSlotProps,
   ValueChain,
 } from "./types";
@@ -45,6 +50,9 @@ export interface ProcessArchitectureProps {
   /** Controlled expansion of groups and processes (omit to let the component manage it). */
   expandedIds?: readonly string[];
   onToggleExpanded?: (id: string, expanded: boolean) => void;
+  /** Controlled view ("structure", "groups" or "full"); omit to let the component manage it. */
+  view?: ProcessView;
+  onViewChange?: (view: ProcessView) => void;
   /** Render slots (editing). Without them the map is read-only. */
   slots?: ProcessSlots;
   className?: string;
@@ -85,6 +93,8 @@ export function ProcessArchitecture({
   onNavigate,
   expandedIds,
   onToggleExpanded,
+  view: viewInput,
+  onViewChange,
   slots = {},
   className = "",
 }: ProcessArchitectureProps) {
@@ -123,6 +133,14 @@ export function ProcessArchitecture({
   };
 
   const rootRef = useRef<HTMLElement>(null);
+
+  // ---- View (controlled or own; the first one follows the appearance) ----
+  const [ownView, setOwnView] = useState<ProcessView | null>(null);
+  const view: ProcessView = viewInput ?? ownView ?? look.defaultView;
+  const setView = (next: ProcessView) => {
+    if (viewInput === undefined) setOwnView(next);
+    onViewChange?.(next);
+  };
 
   if (!model) {
     const first = issues.find((i) => i.level === "error");
@@ -472,6 +490,149 @@ export function ProcessArchitecture({
     </div>
   );
 
+  // ---- "Structure & levels": a pyramid of the four levels, grouped into scope bands ----
+  const bands = structureBands(model);
+  // Pyramid proportions by position from the top (fractions of the column width): a broad,
+  // flat apex triangle, then trapezoids widening downwards; the last row is the widest.
+  const order = bands.flatMap((b) => b.levels);
+  const TOPS = [0, 0.47, 0.64, 0.85];
+  const BOTTOMS = [0.47, 0.64, 0.86, 1];
+  const clipFor = (level: ProcessLevel) => {
+    const k = order.indexOf(level);
+    const ht = TOPS[k] * 50;
+    const hb = BOTTOMS[k] * 50;
+    const f = (n: number) => Math.round(n * 100) / 100;
+    return `polygon(${f(50 - ht)}% 0, ${f(50 + ht)}% 0, ${f(50 + hb)}% 100%, ${f(50 - hb)}% 100%)`;
+  };
+  const levelColors = [theme.level0, theme.level1, theme.level2, theme.level3].map((c) => groupNodeColors(c));
+  const scopeChip = groupNodeColors(theme.scope);
+  const openLevel = (level: ProcessLevel) => {
+    const target: ProcessView = level <= 1 ? "groups" : "full";
+    setView(target);
+    setAnnouncement(VIEW_LABELS[target]);
+  };
+  const rich = (text: string) => boldRuns(text).map((r, i) => (r.bold ? <strong key={i}>{r.text}</strong> : <span key={i}>{r.text}</span>));
+
+  const renderStructure = () => (
+    <div className="pa-structure">
+      {bands.map((band, bi) => (
+        <div key={bi} className="pa-band" data-band={bi} data-scoped={band.scope ? "" : undefined}>
+          <div className="pa-band-rows">
+            {band.levels.map((l) => {
+              const def = model.levels[l];
+              const c = levelColors[l];
+              const shapeStyle = { clipPath: clipFor(l), background: c.bg, color: c.fg } as CSSProperties;
+              return (
+                <div key={l} className="pa-srow" data-level={l}>
+                  <div className="pa-shape-cell">
+                    {editable ? (
+                      <div className="pa-shape" style={shapeStyle}>
+                        <Text field={{ kind: "levelName", levelIndex: l }} value={def.name} className="pa-shape-name" as="span" placeholder="Level name" />
+                      </div>
+                    ) : (
+                      <button type="button" className="pa-shape" style={shapeStyle} data-nav="shape" onClick={() => openLevel(l)}>
+                        <span className="pa-shape-name">{def.name || `Level ${l}`}</span>
+                        <span className="pa-visually-hidden">: open {VIEW_LABELS[l <= 1 ? "groups" : "full"]}</span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="pa-srow-text">
+                    <div className="pa-pill-wrap">
+                      <Text field={{ kind: "levelLabel", levelIndex: l }} value={def.label} className="pa-level-pill" as="span" placeholder={`Level ${l}`} />
+                    </div>
+                    <span className="pa-arrow" aria-hidden="true" />
+                    {editable ? (
+                      <Text field={{ kind: "levelDescription", levelIndex: l }} value={def.description} className="pa-level-text" as="p" placeholder="What this level covers…" multiline />
+                    ) : (
+                      def.description && <p className="pa-level-text">{rich(def.description)}</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {band.scope && (
+            <aside className="pa-callout" aria-label={band.scope.title || "Scope"}>
+              <div className="pa-callout-chip" style={{ background: (bi === 0 ? scopeChip : levelColors[3]).bg, color: (bi === 0 ? scopeChip : levelColors[3]).fg }}>
+                <Text field={{ kind: "scopeTitle", scopeIndex: band.scopeIndex }} value={band.scope.title} className="pa-callout-title" as="p" placeholder="Scope title" />
+              </div>
+              <Text
+                field={{ kind: "scopeDescription", scopeIndex: band.scopeIndex }}
+                value={band.scope.description}
+                className={`pa-callout-text${band.scope.description.trim() ? "" : " is-empty"}`}
+                as="p"
+                placeholder="What this scope covers…"
+                multiline
+              />
+            </aside>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
+  // ---- "Full architecture": every group with all its processes and activities ----
+  const renderFull = () => (
+    <div className="pa-full">
+      {chain.groups.length === 0
+        ? empty("No process groups in this value chain yet.")
+        : CATEGORY_ROWS.map((cat) => {
+            const list = chain.groups.filter((g) => g.category === cat);
+            if (!list.length) return null;
+            return (
+              <section key={cat} className="pa-full-row" data-category={cat} aria-label={ROW_LABEL[cat]}>
+                <h4 className="pa-full-row-label">{ROW_LABEL[cat]}</h4>
+                <ol className="pa-full-groups" data-nav-scope="">
+                  {list.map((g) => {
+                    const gc = colorOf(g);
+                    return (
+                      <li key={g.id} className="pa-full-group" data-node={g.id} style={{ "--node": gc.bg, "--node-fg": gc.fg } as CSSProperties}>
+                        <div className="pa-full-group-head">
+                          {code(codeOf(g))}
+                          <span>{g.title || "Untitled group"}</span>
+                        </div>
+                        {g.processes.length === 0 ? (
+                          <p className="pa-full-empty">No processes yet</p>
+                        ) : (
+                          <ol className="pa-full-processes">
+                            {g.processes.map((p) => (
+                              <li key={p.id} className="pa-full-process" data-node={p.id}>
+                                <button
+                                  type="button"
+                                  className="pa-full-process-title"
+                                  data-nav="full"
+                                  onClick={() => {
+                                    setView("groups");
+                                    go({ groupId: g.id, processId: p.id }, `Process ${p.title}`);
+                                  }}
+                                >
+                                  {code(codeOf(p))}
+                                  <span>{p.title || "Untitled process"}</span>
+                                </button>
+                                {p.activities.length > 0 && (
+                                  <ol className="pa-full-activities" aria-label={`Activities of ${p.title}`}>
+                                    {p.activities.map((a) => (
+                                      <li key={a.id} data-node={a.id}>
+                                        {code(codeOf(a))}
+                                        <span>{a.title || "Untitled activity"}</span>
+                                      </li>
+                                    ))}
+                                  </ol>
+                                )}
+                              </li>
+                            ))}
+                          </ol>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+            );
+          })}
+    </div>
+  );
+
   return (
     <section
       ref={rootRef}
@@ -484,122 +645,167 @@ export function ProcessArchitecture({
       data-density={look.density}
       data-activity-layout={look.activityLayout}
       data-depth={depth}
+      data-view={view}
       aria-label={model.title || chain.title || "Process architecture"}
       onKeyDown={onKeyDown}
     >
-      {(model.title || model.subtitle || editable) && (
-        <header className="pa-head">
-          <Text field={{ kind: "title" }} value={model.title} className="pa-title" as="h2" placeholder="Infographic title" />
-          <span className="pa-title-bar" aria-hidden="true" />
-          <Text field={{ kind: "subtitle" }} value={model.subtitle} className="pa-subtitle" as="p" placeholder="Add a subtitle (optional)" multiline />
-        </header>
-      )}
-
       <div className="pa-panel">
-        {(model.valueChains.length > 1 || editable) && (
-          <div className="pa-chains">
-            <div className="pa-chain-tabs" role="tablist" aria-label="Value chains" data-nav-scope="">
-              {model.valueChains.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="tab"
-                  className="pa-chain-tab"
-                  data-nav="0"
-                  data-chain={c.id}
-                  aria-selected={c.id === chain.id}
-                  tabIndex={c.id === chain.id ? 0 : -1}
-                  onClick={() => {
-                    navigate({ valueChainId: c.id });
-                    setAnnouncement(`Value chain ${c.title}`);
-                  }}
-                >
-                  <span className="pa-level-badge" data-level={0} aria-hidden="true">
-                    L0
-                  </span>
-                  {c.title || "Untitled value chain"}
-                </button>
-              ))}
-            </div>
-            {slots.addButton?.(0, null)}
-          </div>
-        )}
-
-        <nav className="pa-crumbs" aria-label="Hierarchy">
-          <ol>
-            {crumbs.map((c, i) => (
-              <li key={c.label}>
-                {i === crumbs.length - 1 ? (
-                  <span className="pa-crumb is-current" aria-current="location">
-                    <span className="pa-crumb-level">{c.label}</span> {c.title}
-                  </span>
-                ) : (
-                  <button type="button" className="pa-crumb" onClick={() => go(c.to, c.level === 0 ? `${chain.title}: overview` : `Process group ${c.title}`)}>
-                    <span className="pa-crumb-level">{c.label}</span> {c.title}
-                  </button>
-                )}
-              </li>
+        <header className="pa-head">
+          {(model.kicker || editable) && <Text field={{ kind: "kicker" }} value={model.kicker} className="pa-kicker" as="p" placeholder="Kicker (optional)" />}
+          <div className="pa-views" role="tablist" aria-label="Views" data-nav-scope="">
+            {PROCESS_VIEWS.map((v, i) => (
+              <button
+                key={v}
+                type="button"
+                role="tab"
+                className="pa-view-tab"
+                data-view={v}
+                data-nav="view"
+                aria-selected={v === view}
+                tabIndex={v === view ? 0 : -1}
+                onClick={() => {
+                  setView(v);
+                  setAnnouncement(VIEW_LABELS[v]);
+                }}
+              >
+                <span className="pa-view-no" aria-hidden="true">
+                  {i + 1}
+                </span>
+                {VIEW_LABELS[v]}
+              </button>
             ))}
-          </ol>
-          {depth > 0 && (
-            <button type="button" className="pa-up" data-action="up" onClick={up}>
-              <span aria-hidden="true">↑</span> Up one level
-            </button>
-          )}
-        </nav>
+          </div>
+          <div className="pa-title-row">
+            <Text field={{ kind: "title" }} value={model.title} className="pa-title" as="h2" placeholder="Infographic title" />
+            <span className="pa-title-view">{VIEW_LABELS[view]}</span>
+          </div>
+          <Text
+            field={{ kind: "subtitle" }}
+            value={model.subtitle}
+            className={`pa-subtitle${model.subtitle.trim() ? "" : " is-empty"}`}
+            as="p"
+            placeholder="Add a description (optional)"
+            multiline
+          />
+        </header>
 
-        <div className="pa-levels">
-          {showOverview && (
-            <section className="pa-level pa-level-0" aria-label={`L0 value chain: ${chain.title}`}>
-              {L0(chain)}
-              {chain.groups.length === 0 && !editable ? (
-                empty("No process groups in this value chain yet.")
-              ) : (
-                <div className="pa-house">
-                  {CATEGORY_ROWS.map((cat) => {
-                    const list = chain.groups.filter((g) => g.category === cat);
-                    if (!list.length && !editable) return null;
-                    return (
-                      <div key={cat} className="pa-row" data-category={cat}>
-                        <span className="pa-row-label">{ROW_LABEL[cat]}</span>
-                        <ol className="pa-row-list" data-nav-scope="" aria-label={`${CATEGORY_LABELS[cat]} process groups`}>
-                          {list.map(renderGroup)}
-                          {slots.addButton && <li className="pa-row-add">{slots.addButton(1, chain.id, cat)}</li>}
-                        </ol>
-                      </div>
-                    );
-                  })}
+        <div className="pa-view" role="tabpanel" aria-label={VIEW_LABELS[view]}>
+          {view === "structure" ? (
+            renderStructure()
+          ) : (
+            <>
+            {(model.valueChains.length > 1 || editable) && (
+              <div className="pa-chains">
+                <div className="pa-chain-tabs" role="tablist" aria-label="Value chains" data-nav-scope="">
+                  {model.valueChains.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="tab"
+                      className="pa-chain-tab"
+                      data-nav="0"
+                      data-chain={c.id}
+                      aria-selected={c.id === chain.id}
+                      tabIndex={c.id === chain.id ? 0 : -1}
+                      onClick={() => {
+                        navigate({ valueChainId: c.id });
+                        setAnnouncement(`Value chain ${c.title}`);
+                      }}
+                    >
+                      <span className="pa-level-badge" data-level={0} aria-hidden="true">
+                        L0
+                      </span>
+                      {c.title || "Untitled value chain"}
+                    </button>
+                  ))}
                 </div>
-              )}
-            </section>
-          )}
-
-          {showGroup && group && (
-            <section className="pa-level pa-level-1" aria-label={`L1 process group: ${group.title}`} style={{ "--node": colorOf(group).bg } as CSSProperties}>
-              {levelHead(1, group, `${CATEGORY_LABELS[group.category]} process group`, plural(group.processes.length, "process", "processes"))}
-              {group.processes.length === 0 && !editable ? (
-                empty("No processes in this group yet.")
+                {slots.addButton?.(0, null)}
+              </div>
+            )}
+              {view === "full" ? (
+                renderFull()
               ) : (
-                <ol className="pa-cards" data-nav-scope="" aria-label={`Processes of ${group.title}`}>
-                  {group.processes.map(renderProcess)}
-                  {slots.addButton && <li className="pa-cards-add">{slots.addButton(2, group.id)}</li>}
-                </ol>
-              )}
-            </section>
-          )}
+                <>
+                <nav className="pa-crumbs" aria-label="Hierarchy">
+                  <ol>
+                    {crumbs.map((c, i) => (
+                      <li key={c.label}>
+                        {i === crumbs.length - 1 ? (
+                          <span className="pa-crumb is-current" aria-current="location">
+                            <span className="pa-crumb-level">{c.label}</span> {c.title}
+                          </span>
+                        ) : (
+                          <button type="button" className="pa-crumb" onClick={() => go(c.to, c.level === 0 ? `${chain.title}: overview` : `Process group ${c.title}`)}>
+                            <span className="pa-crumb-level">{c.label}</span> {c.title}
+                          </button>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                  {depth > 0 && (
+                    <button type="button" className="pa-up" data-action="up" onClick={up}>
+                      <span aria-hidden="true">↑</span> Up one level
+                    </button>
+                  )}
+                </nav>
 
-          {showProcess && process && (
-            <section className="pa-level pa-level-2" aria-label={`L2 process: ${process.title}`} style={{ "--node": colorOf(group!).bg } as CSSProperties}>
-              {levelHead(2, process, "Process", plural(process.activities.length, "activity", "activities"))}
-              {process.activities.length === 0 && !editable ? (
-                empty("No activities in this process yet.")
-              ) : (
-                <ol className="pa-steps" data-nav-scope="" aria-label={`Activities of ${process.title}`}>
-                  {process.activities.map(renderActivity)}
-                  {slots.addButton && <li className="pa-steps-add">{slots.addButton(3, process.id)}</li>}
-                </ol>
+                <div className="pa-levels">
+                  {showOverview && (
+                    <section className="pa-level pa-level-0" aria-label={`L0 value chain: ${chain.title}`}>
+                      {L0(chain)}
+                      {chain.groups.length === 0 && !editable ? (
+                        empty("No process groups in this value chain yet.")
+                      ) : (
+                        <div className="pa-house">
+                          {CATEGORY_ROWS.map((cat) => {
+                            const list = chain.groups.filter((g) => g.category === cat);
+                            if (!list.length && !editable) return null;
+                            return (
+                              <div key={cat} className="pa-row" data-category={cat}>
+                                <span className="pa-row-label">{ROW_LABEL[cat]}</span>
+                                <ol className="pa-row-list" data-nav-scope="" aria-label={`${CATEGORY_LABELS[cat]} process groups`}>
+                                  {list.map(renderGroup)}
+                                  {slots.addButton && <li className="pa-row-add">{slots.addButton(1, chain.id, cat)}</li>}
+                                </ol>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {showGroup && group && (
+                    <section className="pa-level pa-level-1" aria-label={`L1 process group: ${group.title}`} style={{ "--node": colorOf(group).bg } as CSSProperties}>
+                      {levelHead(1, group, `${CATEGORY_LABELS[group.category]} process group`, plural(group.processes.length, "process", "processes"))}
+                      {group.processes.length === 0 && !editable ? (
+                        empty("No processes in this group yet.")
+                      ) : (
+                        <ol className="pa-cards" data-nav-scope="" aria-label={`Processes of ${group.title}`}>
+                          {group.processes.map(renderProcess)}
+                          {slots.addButton && <li className="pa-cards-add">{slots.addButton(2, group.id)}</li>}
+                        </ol>
+                      )}
+                    </section>
+                  )}
+
+                  {showProcess && process && (
+                    <section className="pa-level pa-level-2" aria-label={`L2 process: ${process.title}`} style={{ "--node": colorOf(group!).bg } as CSSProperties}>
+                      {levelHead(2, process, "Process", plural(process.activities.length, "activity", "activities"))}
+                      {process.activities.length === 0 && !editable ? (
+                        empty("No activities in this process yet.")
+                      ) : (
+                        <ol className="pa-steps" data-nav-scope="" aria-label={`Activities of ${process.title}`}>
+                          {process.activities.map(renderActivity)}
+                          {slots.addButton && <li className="pa-steps-add">{slots.addButton(3, process.id)}</li>}
+                        </ol>
+                      )}
+                    </section>
+                  )}
+                </div>
+                </>
               )}
-            </section>
+            </>
           )}
         </div>
       </div>

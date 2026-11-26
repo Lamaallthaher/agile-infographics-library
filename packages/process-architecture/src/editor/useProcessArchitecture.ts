@@ -124,8 +124,18 @@ export function useProcessArchitecture(
   const actions = {
     /** Sets the value of any inline text field. */
     setField(field: FieldRef, value: string) {
-      if (!("id" in field)) return update((d) => ({ ...d, [field.kind]: value.slice(0, L[field.kind]) }));
-      return patchNode(field.id, field.kind === "nodeTitle" ? { title: value.slice(0, L.nodeTitle) } : { description: value.slice(0, L.description) });
+      if ("id" in field) return patchNode(field.id, field.kind === "nodeTitle" ? { title: value.slice(0, L.nodeTitle) } : { description: value.slice(0, L.description) });
+      if ("levelIndex" in field) {
+        const key = field.kind === "levelLabel" ? "label" : field.kind === "levelName" ? "name" : "description";
+        const max = field.kind === "levelLabel" ? L.levelLabel : field.kind === "levelName" ? L.levelName : L.levelDescription;
+        return update((d) => ({ ...d, levels: d.levels.map((lv, i) => (i === field.levelIndex ? { ...lv, [key]: value.slice(0, max) } : lv)) }));
+      }
+      if ("scopeIndex" in field) {
+        const key = field.kind === "scopeTitle" ? "title" : "description";
+        const max = field.kind === "scopeTitle" ? L.scopeTitle : L.scopeDescription;
+        return update((d) => ({ ...d, scopes: d.scopes.map((sc, i) => (i === field.scopeIndex ? { ...sc, [key]: value.slice(0, max) } : sc)) }));
+      }
+      return update((d) => ({ ...d, [field.kind]: value.slice(0, L[field.kind]) }));
     },
     /** Updates structured fields (owner, status, tags, code, link; category, icon and colour for groups). */
     updateNode(id: string, patch: NodePatch) {

@@ -58,10 +58,38 @@ export interface ValueChainInput extends NodeInput {
   groups?: ProcessGroupInput[];
 }
 
+/** How one level of the hierarchy is described in the "Structure & levels" view. */
+export interface LevelDefinitionInput {
+  /** Short label in the dashed pill, for example "Level Zero". */
+  label?: string;
+  /** Name inside the pyramid shape, for example "Value chain". */
+  name?: string;
+  /** What the level covers. **Double asterisks** mark key phrases shown in bold. */
+  description?: string;
+}
+
+/**
+ * A band of levels in the "Structure & levels" view with a callout card, for
+ * example the levels covered now and those designed later. Each level belongs
+ * to at most one scope; levels in no scope form a band without a callout.
+ */
+export interface ScopeInput {
+  title: string;
+  description?: string;
+  /** Levels (0–3) in this band. */
+  levels: number[];
+}
+
 export interface ProcessArchitectureInput {
   version?: 1;
+  /** Small uppercase line above the view tabs. */
+  kicker?: string;
   title?: string;
   subtitle?: string;
+  /** Definitions of L0–L3 (index = level). Missing entries use generic defaults. */
+  levels?: LevelDefinitionInput[];
+  /** Bands of the "Structure & levels" view (at most 3). Omitted = generic defaults; [] = no callouts. */
+  scopes?: ScopeInput[];
   valueChains: ValueChainInput[];
 }
 
@@ -72,12 +100,22 @@ export type Process = NodeData & { activities: Activity[] };
 export type ProcessGroup = NodeData & { category: GroupCategory; icon: IconKey | null; color: string | null; processes: Process[] };
 export type ValueChain = NodeData & { groups: ProcessGroup[] };
 
+export type LevelDefinition = Required<LevelDefinitionInput>;
+export type Scope = Required<ScopeInput>;
+
 export interface ProcessArchitectureData {
   version: 1;
+  kicker: string;
   title: string;
   subtitle: string;
+  /** Always four entries: L0, L1, L2, L3. */
+  levels: LevelDefinition[];
+  scopes: Scope[];
   valueChains: ValueChain[];
 }
+
+/** The three views of the map. */
+export type ProcessView = "structure" | "groups" | "full";
 
 export interface ProcessArchitectureLimits {
   minValueChains: number;
@@ -86,7 +124,14 @@ export interface ProcessArchitectureLimits {
   maxProcesses: number;
   maxActivities: number;
   maxTags: number;
+  maxScopes: number;
   maxLength: {
+    kicker: number;
+    levelLabel: number;
+    levelName: number;
+    levelDescription: number;
+    scopeTitle: number;
+    scopeDescription: number;
     title: number;
     subtitle: number;
     nodeTitle: number;
@@ -122,7 +167,7 @@ export type ExpandDefault = "collapsed" | "expanded";
 /** How activities (L3) are laid out. */
 export type ActivityLayout = "flow" | "list";
 
-export type ProcessOverrideKey = "background" | "panel" | "surface" | "heading" | "text" | "accent" | "valueChain" | "coreFrom" | "coreTo" | "management" | "support";
+export type ProcessOverrideKey = "background" | "panel" | "surface" | "heading" | "text" | "accent" | "valueChain" | "coreFrom" | "coreTo" | "management" | "support" | "scope";
 export type ProcessOverrides = Partial<Record<ProcessOverrideKey, string>>;
 
 export interface ProcessAppearance {
@@ -142,6 +187,8 @@ export interface ProcessAppearance {
   activityLayout: ActivityLayout;
   /** Show hierarchical numbers (1, 1.2, 1.2.3) where a node has no code of its own. */
   numbering: boolean;
+  /** The view shown first. */
+  defaultView: ProcessView;
 }
 
 /** Every colour used by the component; each field becomes an --pa-* CSS variable. */
@@ -172,6 +219,15 @@ export interface ProcessTheme {
   connector: string;
   selected: string;
   focus: string;
+  /** Pyramid shapes of the "Structure & levels" view, L0–L3. */
+  level0: string;
+  level1: string;
+  level2: string;
+  level3: string;
+  /** Accent of the first scope band (dashed outline and callout chip). */
+  scope: string;
+  /** Background of the bands after the first. */
+  detailBand: string;
   fontFamily: string;
 }
 
@@ -180,8 +236,10 @@ export interface ProcessTheme {
  * ------------------------------------------------------------------------- */
 
 export type FieldRef =
-  | { kind: "title" | "subtitle" }
-  | { kind: "nodeTitle" | "nodeDescription"; level: ProcessLevel; id: string };
+  | { kind: "title" | "subtitle" | "kicker" }
+  | { kind: "nodeTitle" | "nodeDescription"; level: ProcessLevel; id: string }
+  | { kind: "levelLabel" | "levelName" | "levelDescription"; levelIndex: ProcessLevel }
+  | { kind: "scopeTitle" | "scopeDescription"; scopeIndex: number };
 
 export interface TextSlotProps {
   field: FieldRef;

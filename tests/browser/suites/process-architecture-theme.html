@@ -20,7 +20,7 @@ function load(width = 1400) {
       const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
       for (let i = 0; i < 60 && !d.querySelector('.pa-group'); i++) await wait(100);
       const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
-      await wait(200); res();
+      await wait(200); const t = d.querySelector('[role=tab][data-view="groups"]'); if (t) click(t); await wait(60); res();
     };
     f.src = '/index.html?' + Math.random() + '#/process-architecture';
   });
@@ -76,6 +76,20 @@ async function run() {
     }
   }
   ok('9 presets × dark/light: every text pair and every group label ≥ 4.5:1, layout unchanged', failures.length === 0, JSON.stringify(failures.slice(0, 4)));
+  // Structure view: pyramid labels and callout chips readable in every preset and scheme.
+  click($('[role=tab][data-view="structure"]')); await wait(60);
+  const shapeFails = [];
+  for (const scheme of ['Dark', 'Light']) {
+    await pick('Colour scheme', scheme);
+    for (const p of $$('[data-panel="appearance"] [aria-label="Theme presets"] button')) {
+      click(p); await wait(60);
+      [...$$('.pa-shape'), ...$$('.pa-callout-chip')].forEach(e => { const r = cr(cs(e, 'color'), cs(e, 'backgroundColor')); if (r < 4.5) shapeFails.push(`${scheme}/${p.textContent.trim()}/${e.className}: ${r.toFixed(2)}`); });
+      if (cr(cs($('.pa-level-text'), 'color'), v('--pa-panel')) < 4.5) shapeFails.push(`${scheme}/${p.textContent.trim()}: level text`);
+    }
+  }
+  ok('structure view: shape labels, callout chips and level text ≥ 4.5:1 in all 18 combinations', shapeFails.length === 0, JSON.stringify(shapeFails.slice(0, 4)));
+  ok('structure view: scope outline uses the theme scope colour', cs($('.pa-band'), 'borderTopColor') !== 'rgba(0, 0, 0, 0)' && cs($('.pa-band'), 'borderTopStyle') === 'dashed');
+  click($('[role=tab][data-view="groups"]')); await wait(60);
   await pick('Colour scheme', 'Light'); click($('[data-panel="appearance"] [aria-label="Theme presets"] button')); await wait(80);
   ok('light scheme: light background and cards, dark text', lum(v('--pa-background')) > 0.8 && lum(v('--pa-surface')) > 0.9 && lum(v('--pa-heading')) < 0.1 && $('.pae').dataset.scheme === 'light');
   await pick('Colour scheme', 'Dark');
@@ -138,7 +152,7 @@ async function run() {
 
   // ---- Overrides and the contrast report ----
   click($('[data-panel="appearance"] .pae-details summary')); await wait(40);
-  ok('11 colour overrides offered', $$('.pae-override').length === 11);
+  ok('12 colour overrides offered (incl. scope highlight)', $$('.pae-override').length === 12 && !!$('input[aria-label="Scope highlight colour"]'));
   type($('input[aria-label="Cards colour"]'), '#f4f4f4'); await wait(80);
   ok('light card override: untouched text adapts', storedA().overrides.surface === '#f4f4f4' && cr(v('--pa-heading'), '#f4f4f4') >= 7 && cr(v('--pa-text-muted'), '#f4f4f4') >= 4.5);
   type($('input[aria-label="Headings colour"]'), '#dddddd'); await wait(80);
@@ -149,6 +163,16 @@ async function run() {
   click($('button[aria-label="Use automatic Cards colour"]')); await wait(40);
   click($('button[aria-label="Use automatic First core group colour"]')); await wait(40);
   ok('overrides back to automatic', Object.keys(storedA().overrides).length === 0);
+
+  // ---- Opening view ----
+  await pick('Opening view', 'Full architecture');
+  await load(1400);
+  ok('appearance "Opening view" is respected (after reload, before any click)', storedA().defaultView === 'full');
+  await pick('Opening view', 'Structure & levels');
+  click($$('.gl-view button').find(b => b.textContent.trim() === 'Display')); await wait(150);
+  ok('display mode opens on the chosen view', $('.pa-views [aria-selected=true]').dataset.view === 'structure');
+  click($$('.gl-view button').find(b => b.textContent.trim() === 'Edit')); await wait(150);
+  click($('[role=tab][data-view="groups"]')); await wait(60);
 
   // ---- Persistence and reset ----
   await pick('Corners', 'Round'); await pick('Colour scheme', 'Light'); await pick('Activities', 'Timeline');

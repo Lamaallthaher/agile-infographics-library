@@ -46,18 +46,34 @@ type Ctx = {
 };
 const EditorCtx = createContext<Ctx | null>(null);
 
-const fieldKey = (f: FieldRef) => ("id" in f ? `${f.kind}:${f.id}` : f.kind);
+const fieldKey = (f: FieldRef) =>
+  "id" in f ? `${f.kind}:${f.id}` : "levelIndex" in f ? `${f.kind}:${f.levelIndex}` : "scopeIndex" in f ? `${f.kind}:${f.scopeIndex}` : f.kind;
+
+/** Accessible name, length limit and whether an empty value is restored, per field. */
+function fieldInfo(field: FieldRef, L: ProcessArchitectureLimits["maxLength"]): { label: string; max: number; required: boolean } {
+  if ("id" in field) {
+    const name = `L${field.level} ${LEVEL_NAMES[field.level].toLowerCase()}`;
+    return field.kind === "nodeTitle" ? { label: `${name} title`, max: L.nodeTitle, required: true } : { label: `${name} description`, max: L.description, required: false };
+  }
+  if ("levelIndex" in field) {
+    const l = `Level ${field.levelIndex}`;
+    if (field.kind === "levelLabel") return { label: `${l} label`, max: L.levelLabel, required: false };
+    if (field.kind === "levelName") return { label: `${l} name`, max: L.levelName, required: true };
+    return { label: `${l} description`, max: L.levelDescription, required: false };
+  }
+  if ("scopeIndex" in field) {
+    return field.kind === "scopeTitle"
+      ? { label: `Scope ${field.scopeIndex + 1} title`, max: L.scopeTitle, required: true }
+      : { label: `Scope ${field.scopeIndex + 1} description`, max: L.scopeDescription, required: false };
+  }
+  if (field.kind === "kicker") return { label: "Kicker", max: L.kicker, required: false };
+  return field.kind === "title" ? { label: "Infographic title", max: L.title, required: false } : { label: "Description", max: L.subtitle, required: false };
+}
 
 /** The editable Text slot: a stable component, so fields never remount while typing. */
 function EditorText({ field, value, className, placeholder, multiline }: TextSlotProps) {
   const ctx = useContext(EditorCtx)!;
-  const L = ctx.limits.maxLength;
-  const label = !("id" in field)
-    ? field.kind === "title"
-      ? "Infographic title"
-      : "Subtitle"
-    : `L${field.level} ${LEVEL_NAMES[field.level].toLowerCase()} ${field.kind === "nodeTitle" ? "title" : "description"}`;
-  const max = field.kind === "title" ? L.title : field.kind === "subtitle" ? L.subtitle : field.kind === "nodeTitle" ? L.nodeTitle : L.description;
+  const { label, max, required } = fieldInfo(field, ctx.limits.maxLength);
   return (
     <EditableText
       inputRef={(el) => ctx.register(fieldKey(field), el)}
@@ -66,7 +82,7 @@ function EditorText({ field, value, className, placeholder, multiline }: TextSlo
       label={label}
       placeholder={placeholder}
       multiline={multiline}
-      required={field.kind === "nodeTitle"}
+      required={required}
       maxLength={max}
       onChange={(v) => ctx.actions.setField(field, v)}
     />

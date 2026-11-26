@@ -19,7 +19,7 @@ function load(width = 1400) {
       const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
       for (let i = 0; i < 60 && !d.querySelector('.pa-group, .pa-invalid, .pa-l0'); i++) await wait(100);
       const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
-      await wait(200); res();
+      await wait(200); groupsView(); await wait(60); res();
     };
     f.src = '/index.html?' + Math.random() + '#/process-architecture';
   });
@@ -37,7 +37,23 @@ const stored = () => JSON.parse(w.localStorage.getItem(KEY));
 const node = id => $(`[data-node="${id}"]`);
 const sel = id => node(id).querySelector('.pa-select');
 const tool = (id, action) => node(id).querySelector(`:scope > .pae-tools [data-action="${action}"]`);
-const view = name => click($$('.gl-view button').find(b => b.textContent.trim() === name));
+/** The map opens on "Structure & levels"; most checks work in "Process groups by stage". */
+const groupsView = () => { const t = d.querySelector('[role=tab][data-view="groups"]'); if (t && t.getAttribute('aria-selected') !== 'true') click(t); };
+const view = async name => { click($$('.gl-view button').find(b => b.textContent.trim() === name)); await wait(150); groupsView(); await wait(60); };
+const rgb = s => s.match(/[\d.]+/g).map(Number).slice(0, 3);
+const lum = c => { const [r, g, b] = rgb(c).map(x => { x /= 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+/** Structure view: rows never overlap, nothing overflows the panel or the page. */
+function integrityStructure(tag) {
+  const bad = [];
+  const rows = $$('.pa-srow').map(e => e.getBoundingClientRect());
+  rows.forEach((a, i) => rows.forEach((b, j) => { if (i < j && overlap(a, b, 1)) bad.push(`rows ${i}/${j} overlap`); }));
+  $$('.pa-band').forEach((band, i) => { const c = band.querySelector('.pa-callout')?.getBoundingClientRect(); if (c) band.querySelectorAll('.pa-level-text').forEach((t, j) => { if (overlap(t.getBoundingClientRect(), c, 1)) bad.push(`text ${i}.${j} under callout`); }); });
+  const panel = $('.pa-panel').getBoundingClientRect();
+  $$('.pa-panel *').forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.right > panel.right + 1 || r.left < panel.left - 1)) bad.push('overflow ' + (e.className.baseVal ?? e.className)); });
+  const de = d.documentElement; if (de.scrollWidth > de.clientWidth + 1) bad.push(`page h-overflow ${de.scrollWidth}>${de.clientWidth}`);
+  ok(`[${tag}] structure view: no overlaps, nothing overflowing`, bad.length === 0, JSON.stringify([...new Set(bad)].slice(0, 6)));
+}
 const crumbs = () => $$('.pa-crumbs li').map(li => li.textContent.replace(/\s+/g, ' ').trim());
 const levels = () => $$('.pa-level').map(s => s.className.match(/pa-level-(\d)/)[1]).join('');
 const chain0 = () => stored().valueChains[0];
@@ -85,13 +101,41 @@ const gen = (chains, groups, processes, activities, extra = {}) => ({
 async function run() {
   localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
   await load(1400);
-  view('Display'); await wait(200);
+  await view('Display'); await wait(200);
+
+  // ---- "Structure & levels" view (opens first) ----
+  click($('[role=tab][data-view="structure"]')); await wait(60);
+  ok('opens on "Structure & levels": 3 numbered view tabs, first selected', $$('.pa-views [role=tab]').length === 3 && $('.pa-views [aria-selected=true]').dataset.view === 'structure' && $$('.pa-view-no').map(n => n.textContent).join() === '1,2,3');
+  ok('kicker, then "title | view", then description', /Operating model design/i.test($('.pa-kicker').textContent) && $('.pa-title').textContent === 'IT service process architecture' && $('.pa-title-view').textContent === 'Structure & levels' && $('.pa-head').firstElementChild === $('.pa-kicker'));
+  const srows = $$('.pa-srow');
+  ok('four level rows L0–L3 with names, dashed pills and arrows', srows.map(r => r.dataset.level).join() === '0,1,2,3' && $$('.pa-shape-name').map(n => n.textContent).join() === 'Value chain,Process group,Process,Activity' && $$('.pa-level-pill').map(p => p.textContent).join() === 'Level Zero,Level One,Level Two,Level Three' && getComputedStyle($('.pa-level-pill')).borderTopStyle === 'dashed' && $$('.pa-arrow').length === 4);
+  const shapeW = l => { const c = getComputedStyle($(`.pa-srow[data-level="${l}"] .pa-shape`)).clipPath; const xs = c.replace(/^polygon\(|\)$/g, '').split(',').map(p => parseFloat(p.trim())); return [Math.round(Math.abs(xs[1] - xs[0]) * 100) / 100, Math.round(Math.abs(xs[2] - xs[3]) * 100) / 100]; };
+  const ws = [0, 1, 2, 3].map(shapeW);
+  ok('pyramid: an apex triangle, then shapes widening downwards to the widest L3', ws[0][0] === 0 && ws.every((w, i) => w[1] > w[0] && (!i || w[1] > ws[i - 1][1])), JSON.stringify(ws));
+  ok('key phrases in **bold** render as strong text', $$('.pa-level-text strong').map(b => b.textContent).join('|') === 'delivers value|clear areas of responsibility|processes in each group|steps, roles and decisions');
+  const bands = $$('.pa-band');
+  ok('two scope bands: L0–L2 in a dashed accent outline, L3 on a shaded band', bands.length === 2 && bands[0].querySelectorAll('.pa-srow').length === 3 && getComputedStyle(bands[0]).borderTopStyle === 'dashed' && getComputedStyle(bands[1]).backgroundColor !== 'rgba(0, 0, 0, 0)' && bands[1].querySelector('.pa-srow').dataset.level === '3');
+  ok('each band has its callout card with a title chip', $$('.pa-callout').length === 2 && /Architecture structure/.test($$('.pa-callout-title')[0].textContent) && /Detailed design/.test($$('.pa-callout-title')[1].textContent));
+  ok('shape labels and callout chips are readable (≥ 4.5:1)', [...$$('.pa-shape'), ...$$('.pa-callout-chip')].every(e => cr(getComputedStyle(e).color, getComputedStyle(e).backgroundColor) >= 4.5));
+  integrityStructure('structure 1400');
+  click($('.pa-srow[data-level="1"] .pa-shape')); await wait(60);
+  ok('selecting the L1 shape opens "Process groups by stage"', $('.pa-views [aria-selected=true]').dataset.view === 'groups' && $$('.pa-group').length === 8 && $('.pa-title-view').textContent === 'Process groups by stage');
+  click($('[role=tab][data-view="structure"]')); await wait(60); click($('.pa-srow[data-level="3"] .pa-shape')); await wait(60);
+  ok('selecting the L3 shape opens "Full architecture"', $('.pa-views [aria-selected=true]').dataset.view === 'full');
+  ok('full architecture: every group, process and activity at once, numbered', $$('.pa-full-group').length === 8 && $$('.pa-full-process').length === 17 && $$('.pa-full-activities li').length === 51 && $('.pa-full-process[data-node="p-test"] .pa-code').textContent === '3.2');
+  click($('.pa-full-process[data-node="p-test"] .pa-full-process-title')); await wait(60);
+  ok('a process in the full view drills into it', $('.pa-views [aria-selected=true]').dataset.view === 'groups' && levels() === '012' && crumbs()[2].includes('Testing'));
+  $('.pa-views [aria-selected=true]').focus(); key(d.activeElement, 'ArrowRight'); await wait(30);
+  ok('→ moves between view tabs (roving tabindex)', d.activeElement.dataset.view === 'full' && d.activeElement.tabIndex === -1);
+  for (let i = 0; i < 3; i++) { key(d.activeElement, 'Escape'); await wait(40); }
+  ok('view content is a labelled tab panel', $('.pa-view[role=tabpanel]').getAttribute('aria-label') === 'Process groups by stage');
+  groupsView(); await wait(40);
 
   // ---- Hierarchy rendering (display mode) ----
   const s0 = stored();
   ok('example: 2 value chains, 8 groups, 17 processes, 51 activities in the first', s0.valueChains.length === 2 && s0.valueChains[0].groups.length === 8 && s0.valueChains[0].groups.reduce((n, g) => n + g.processes.length, 0) === 17);
   ok('L0 banner with title, owner, status, tags and totals', /IT service value chain/.test($('.pa-l0-title').textContent) && /Chief Information Officer/.test($('.pa-l0').textContent) && $$('.pa-stats dd').map(x => x.textContent).join() === '8,17,51');
-  ok('value chains are tabs (L0 selector), first selected', $$('[role=tab]').length === 2 && $('[role=tab][aria-selected=true]').dataset.chain === 'vc-it');
+  ok('value chains are tabs (L0 selector), first selected', $$('.pa-chain-tab').length === 2 && $('.pa-chain-tab[aria-selected=true]').dataset.chain === 'vc-it');
   const rows = cat => $$(`.pa-row[data-category="${cat}"] .pa-group`).map(g => g.dataset.node);
   ok('L1 groups in management / core / support rows', rows('management').join() === 'g-govern' && rows('core').join() === 'g-plan,g-build,g-deliver,g-improve' && rows('support').join() === 'g-suppliers,g-people,g-security');
   const core = rows('core').map(id => node(id).getBoundingClientRect());
@@ -149,10 +193,10 @@ async function run() {
   key(d.activeElement, 'Escape'); await wait(60);
   ok('Esc again returns to the overview', levels() === '0');
   const tab2 = $('[role=tab][data-chain="vc-product"]');
-  $('[role=tab][aria-selected=true]').focus(); key(d.activeElement, 'ArrowRight'); await wait(30);
+  $('.pa-chain-tab[aria-selected=true]').focus(); key(d.activeElement, 'ArrowRight'); await wait(30);
   ok('→ moves between value-chain tabs (roving tabindex)', d.activeElement === tab2 && tab2.tabIndex === -1);
   click(tab2); await wait(80);
-  ok('second value chain: its own groups, core only (empty rows hidden)', $('[role=tab][aria-selected=true]') === tab2 && $$('.pa-group').length === 3 && !$('.pa-row[data-category="management"]'));
+  ok('second value chain: its own groups, core only (empty rows hidden)', $('.pa-chain-tab[aria-selected=true]') === tab2 && $$('.pa-group').length === 3 && !$('.pa-row[data-category="management"]'));
   click(sel('g-launch')); await wait(40); click(sel('p-golive')); await wait(60);
   ok('empty state for a process without activities', /No activities in this process yet/.test($('.pa-level-2').textContent));
   ok('accessible names: level sections and live announcement', /^L2 process: Go-live/.test($('.pa-level-2').getAttribute('aria-label')) && /Process Go-live/.test($('.pa [role=status]').textContent));
@@ -161,11 +205,20 @@ async function run() {
   ok('display mode: no editing controls', $$('.gl-main textarea, .gl-main input').length === 0 && !$('.pae-tools, .pae-add, [data-inspector], [data-panel]') && $$('[data-action]').every(b => b.dataset.action === 'up'));
 
   // ---- Responsive ----
-  await load(800); view('Display'); await wait(150);
+  await load(800); await view('Display'); await wait(150);
   click(sel('g-build')); await wait(40); click(sel('p-test')); await wait(60);
   integrity('all levels 800');
-  await load(390); view('Display'); await wait(150);
+  click($('[role=tab][data-view="structure"]')); await wait(60);
+  integrityStructure('structure 800');
+  groupsView(); await wait(40);
+  await load(390); await view('Display'); await wait(150);
   click(sel('g-build')); await wait(40); click(sel('p-test')); await wait(60);
+  click($('[role=tab][data-view="structure"]')); await wait(60);
+  ok('390 px: structure view stacks (shape above its pill and text)', $$('.pa-srow').every(r => r.querySelector('.pa-shape').getBoundingClientRect().bottom <= r.querySelector('.pa-level-pill').getBoundingClientRect().top + 1));
+  integrityStructure('structure 390');
+  click($('[role=tab][data-view="full"]')); await wait(60);
+  integrity('full architecture 390');
+  groupsView(); await wait(60);
   const coreN = ['g-plan', 'g-build', 'g-deliver', 'g-improve'].map(id => node(id).getBoundingClientRect());
   ok('390 px: the value flow turns into a vertical stack', coreN.every((r, i) => !i || (r.top > coreN[i - 1].bottom - 1 && Math.abs(r.left - coreN[0].left) < 2)));
   integrity('all levels 390');
@@ -219,11 +272,28 @@ async function run() {
   ok('delete + Undo a group with all its processes and activities', /Measure & improve/.test(before) && chain0().groups.find(g => g.id === 'g-improve')?.processes.length === 2 && coreOrder().endsWith('g-improve'));
   // value chains
   click($('[data-action="add-l0"]')); await wait(100);
-  ok('Add value chain: new tab selected with empty rows to fill', stored().valueChains.length === 3 && $('[role=tab][aria-selected=true]').textContent.includes('New value chain') && $$('.pa-group').length === 0 && !!$('[data-action="add-l1-core"]'));
+  ok('Add value chain: new tab selected with empty rows to fill', stored().valueChains.length === 3 && $('.pa-chain-tab[aria-selected=true]').textContent.includes('New value chain') && $$('.pa-group').length === 0 && !!$('[data-action="add-l1-core"]'));
   click($('[data-action="add-l1-core"]')); await wait(100);
   ok('…and its first core group', stored().valueChains[2].groups.length === 1 && stored().valueChains[2].groups[0].category === 'core');
   click(tool(stored().valueChains[2].id, 'delete')); await wait(80);
-  ok('delete a value chain', stored().valueChains.length === 2 && $$('[role=tab]').length === 2);
+  ok('delete a value chain', stored().valueChains.length === 2 && $$('.pa-chain-tab').length === 2);
+
+  // ---- Editing the structure view ----
+  click($('[role=tab][data-view="structure"]')); await wait(60);
+  type($('textarea[aria-label="Level 2 description"]'), 'Lists the **processes** of each group.'); await wait(30);
+  ok('level description edited (bold markers kept in the data)', stored().levels[2].description === 'Lists the **processes** of each group.');
+  type($('textarea[aria-label="Level 0 label"]'), 'L0'); await wait(30);
+  type($('textarea[aria-label="Level 3 name"]'), 'Step'); await wait(30);
+  ok('level label and name edited', stored().levels[0].label === 'L0' && stored().levels[3].name === 'Step');
+  const lname = $('textarea[aria-label="Level 3 name"]'); type(lname, ''); lname.blur(); await wait(30);
+  ok('an empty level name is restored on blur', stored().levels[3].name === 'Step');
+  type($('textarea[aria-label="Scope 1 title"]'), 'Phase one'); await wait(30);
+  type($('textarea[aria-label="Scope 2 description"]'), 'Later, process by process.'); await wait(30);
+  ok('scope callout title and description edited', stored().scopes[0].title === 'Phase one' && stored().scopes[1].description === 'Later, process by process.');
+  type($('textarea[aria-label="Kicker"]'), 'Design · Processes'); await wait(30);
+  ok('kicker edited', stored().kicker === 'Design · Processes');
+  integrityStructure('structure editor 1400');
+  groupsView(); await wait(60);
 
   // ---- Inspector fields ----
   click(node('g-build')); await wait(40); click(node('p-test')); await wait(60);
@@ -267,6 +337,16 @@ async function run() {
   ok('ids made unique across all levels', new Set(flat).size === 4 && flat.every(Boolean));
   ok('unknown category / status corrected, unsafe link and bad tags dropped', m.valueChains[0].groups[0].category === 'core' && m.valueChains[0].groups[0].status === '' && m.valueChains[0].groups[0].processes[0].href === '' && m.valueChains[0].groups[0].processes[0].tags.length === 0);
   ok('missing optional fields render (one chain, no tabs needed in display)', $$('.pa-group').length === 1);
+  msg = await importData({ ...gen(1, 1, 1, 1), scopes: [{ title: 'A', levels: [0, 1] }, { title: 'B', levels: [1, 7, 2] }], levels: [{ name: 'Chain' }, 'bad'] });
+  const sc = stored();
+  ok('scopes: a level used twice and an invalid level are ignored', sc.scopes.length === 2 && sc.scopes[0].levels.join() === '0,1' && sc.scopes[1].levels.join() === '2' && /already belongs to another scope/.test(msg) && /is not a level/.test(msg));
+  ok('levels: partial definitions keep generic defaults for the rest', sc.levels[0].name === 'Chain' && sc.levels[0].label === 'Level Zero' && sc.levels[1].name === 'Process group' && sc.levels.length === 4);
+  msg = await importData({ ...gen(1, 1, 1, 1), scopes: [{ title: 'a', levels: [0] }, { title: 'b', levels: [1] }, { title: 'c', levels: [2] }, { title: 'd', levels: [3] }] });
+  ok('more than 3 scopes is an error', /not imported/.test(msg) && /at most 3/.test(msg));
+  msg = await importData({ ...gen(1, 1, 1, 1), scopes: [] });
+  click($('[role=tab][data-view="structure"]')); await wait(60);
+  ok('no scopes: one band with all four levels and no callout', $$('.pa-band').length === 1 && $$('.pa-band .pa-srow').length === 4 && !$('.pa-callout'));
+  groupsView(); await wait(40);
   msg = await importData(gen(1, 4, 2, 3));
   ok('generated data: 4 groups × 2 processes × 3 activities', /Imported 1 value chain\.$/.test(msg.trim()) && $$('.pa-group').length === 4);
   const L = n => ('Process' + ' architecture'.repeat(40)).slice(0, n);

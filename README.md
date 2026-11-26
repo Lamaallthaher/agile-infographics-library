@@ -389,7 +389,17 @@ model, props and appearance options.
 
 ## Component 04 — Process Architecture Map
 
-A four-level process hierarchy as a consulting-style infographic:
+A four-level process hierarchy as a consulting-style infographic, in three
+views chosen with a numbered tab bar:
+
+- **Structure & levels:** a pyramid of the levels with dashed label pills,
+  arrows and descriptions with bold key phrases. Levels are grouped into scope
+  bands: the first is outlined in a dashed accent, later ones are shaded, and
+  each band has a callout card.
+- **Process groups by stage:** the process house with drill-down.
+- **Full architecture:** everything at once, numbered.
+
+The levels are shown as:
 
 | Level | Name | Shown as |
 |---|---|---|
