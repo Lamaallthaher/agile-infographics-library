@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { EcosystemMapEditor } from "@agile-infographics/ecosystem-map";
 import { DEFAULT_METHODOLOGY, MethodologyFlowEditor } from "@agile-infographics/methodology-flow";
 import { DEFAULT_TOM, TomWheelEditor, paletteToWheelTheme, useThemeColor } from "@agile-infographics/tom-wheel";
+import { ECOSYSTEM_EXAMPLES } from "./ecosystem-examples";
 import "./gallery.css";
 
 /** Local Storage key for the prototype's TOM wheel. Use a different key per project. */
@@ -9,16 +11,22 @@ const STORAGE_KEY = "agile-infographics.tom-wheel.v1";
 const THEME_KEY = "agile-infographics.tom-wheel.theme.v1";
 /** Local Storage key for the Methodology Flow content (appearance: `${key}.appearance`). */
 const METHODOLOGY_KEY = "agile-infographics.methodology-flow.v1";
+/** Local Storage key per Ecosystem Map example (appearance: `${key}.appearance`). */
+const ecosystemKey = (example: string) => `agile-infographics.ecosystem-map.${example}.v1`;
 
 /** The library's components. Each has its own page: #/<slug>. */
 const COMPONENTS = [
   { slug: "tom-wheel", label: "TOM Wheel", asset: "01" },
   { slug: "methodology-flow", label: "Methodology Flow", asset: "02" },
+  { slug: "ecosystem-map", label: "Ecosystem Map", asset: "03" },
 ] as const;
 type Slug = (typeof COMPONENTS)[number]["slug"];
 
+/** Hash parts: #/<slug>/<sub-page>. */
+const hashParts = () => window.location.hash.replace(/^#\/?/, "").split("/");
+
 function readSlug(): Slug {
-  const s = window.location.hash.replace(/^#\/?/, "");
+  const s = hashParts()[0];
   return COMPONENTS.find((c) => c.slug === s)?.slug ?? "tom-wheel";
 }
 
@@ -78,7 +86,9 @@ export function Gallery() {
         </div>
       </header>
 
-      <main className="gl-main">{slug === "methodology-flow" ? <MethodologyPage /> : <TomPage />}</main>
+      <main className="gl-main">
+        {slug === "methodology-flow" ? <MethodologyPage /> : slug === "ecosystem-map" ? <EcosystemPage /> : <TomPage />}
+      </main>
 
       <footer className="gl-footer">
         All example content is fictional and for demonstration only. Independent Agile asset.
@@ -104,6 +114,72 @@ function MethodologyPage() {
         <li>Hover a step or dimension for <kbd>move</kbd> / <kbd>add</kbd> / <kbd>delete</kbd></li>
         <li><kbd>Enter</kbd> in a point adds the next point</li>
         <li>Change colours, type and layout under <kbd>Appearance</kbd></li>
+      </ul>
+    </>
+  );
+}
+
+const readExample = () => ECOSYSTEM_EXAMPLES.find((e) => e.id === hashParts()[1]) ?? ECOSYSTEM_EXAMPLES[0];
+
+/** The Ecosystem Map page: three example contexts, each editable or shown in display mode. */
+function EcosystemPage() {
+  const [example, setExample] = useState(readExample);
+  const [view, setView] = useState<"edit" | "display">("edit");
+  useEffect(() => {
+    const onChange = () => setExample(readExample());
+    window.addEventListener("hashchange", onChange);
+    return () => window.removeEventListener("hashchange", onChange);
+  }, []);
+
+  return (
+    <>
+      <section className="gl-intro">
+        <p className="gl-kicker">Asset 03</p>
+        <h1 className="gl-title">Ecosystem &amp; Interfaces Map</h1>
+        <p className="gl-lede">
+          A central entity connected to any number of surrounding groups, each with its own items. Any content, any
+          number of groups and items, and a layout that adapts to the data and the screen.
+        </p>
+      </section>
+      <div className="gl-switcher">
+        <nav className="gl-examples" aria-label="Examples">
+          {ECOSYSTEM_EXAMPLES.map((e) => (
+            <a key={e.id} href={`#/ecosystem-map/${e.id}`} className="gl-example" aria-current={e.id === example.id ? "page" : undefined}>
+              {e.label}
+            </a>
+          ))}
+        </nav>
+        <div className="gl-view" role="group" aria-label="Mode">
+          <button type="button" aria-pressed={view === "edit"} onClick={() => setView("edit")}>
+            Edit
+          </button>
+          <button type="button" aria-pressed={view === "display"} onClick={() => setView("display")}>
+            Display
+          </button>
+        </div>
+      </div>
+      <p className="gl-example-desc">{example.description}</p>
+      <EcosystemMapEditor
+        key={example.id}
+        defaultData={example.data}
+        defaultAppearance={example.appearance}
+        storageKey={ecosystemKey(example.id)}
+        readOnly={view === "display"}
+      />
+      <ul className="gl-tips" aria-label="How to interact">
+        {view === "edit" ? (
+          <>
+            <li><kbd>Click</kbd> any text on the map to edit it</li>
+            <li>Select a group for its <kbd>position</kbd>, <kbd>colour</kbd> and <kbd>connection</kbd></li>
+            <li><kbd>Enter</kbd> in an item adds the next one; <kbd>Alt</kbd> + <kbd>↑</kbd> <kbd>↓</kbd> reorders</li>
+            <li>Import or export the content as <kbd>JSON</kbd> under the map</li>
+          </>
+        ) : (
+          <>
+            <li><kbd>Click</kbd> a group to highlight it and its connection</li>
+            <li><kbd>Tab</kbd> to a group, then <kbd>←</kbd> <kbd>→</kbd> to move, <kbd>Esc</kbd> to clear</li>
+          </>
+        )}
       </ul>
     </>
   );

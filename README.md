@@ -9,6 +9,7 @@ bundles the others or the development gallery.
 |---|---|---|---|
 | 01 | **TOM Wheel** | [`@agile-infographics/tom-wheel`](packages/tom-wheel/README.md) | A circular Target Operating Model wheel with any number of components (3–12), a details panel and a component list. |
 | 02 | **Methodology Flow & Assessment Wheel** | [`@agile-infographics/methodology-flow`](packages/methodology-flow/README.md) | A connected sequence of methodology steps (2–8) leading to a circular set of assessment dimensions (3–12). |
+| 03 | **Ecosystem & Interfaces Map** | [`@agile-infographics/ecosystem-map`](packages/ecosystem-map/README.md) | A central entity connected to any number of surrounding groups (1–12), each with its own items (0–20). It has a display-only mode and an editor. |
 | — | Shared building blocks | [`@agile-infographics/core`](packages/core/README.md) | Theme generator, contrast helpers, icon registry, inline-editing primitives, storage helpers. Installed automatically with any component, which re-exports what clients need. |
 
 Every component shares the same principles:
@@ -41,6 +42,7 @@ npm run dev      # → http://localhost:5173
 |---|---|
 | http://localhost:5173/#/tom-wheel | 01 · TOM Wheel (default) |
 | http://localhost:5173/#/methodology-flow | 02 · Methodology Flow & Assessment Wheel |
+| http://localhost:5173/#/ecosystem-map | 03 · Ecosystem & Interfaces Map (examples: `/it-quality`, `/digital-transformation`, `/operating-model`) |
 
 | Command | What it does |
 |---|---|
@@ -79,10 +81,15 @@ agile-infographics-library/
 │   │       ├── renderer/            # SVG segment wheel, geometry, theme mapping (read-only)
 │   │       ├── editor/              # data model, defaults, storage, state hook, TomWheelEditor
 │   │       └── index.ts             # public entry
-│   └── methodology-flow/            # @agile-infographics/methodology-flow: component 02
+│   ├── methodology-flow/            # @agile-infographics/methodology-flow: component 02
+│   │   └── src/
+│   │       ├── renderer/            # layout engine, theme mapping, MethodologyFlow (read-only)
+│   │       ├── editor/              # data model, defaults, storage, hooks, editor, appearance panel
+│   │       └── index.ts             # public entry
+│   └── ecosystem-map/               # @agile-infographics/ecosystem-map: component 03
 │       └── src/
-│           ├── renderer/            # layout engine, theme mapping, MethodologyFlow (read-only)
-│           ├── editor/              # data model, defaults, storage, hooks, editor, appearance panel
+│           ├── renderer/            # data model + validation, layout engine, theme, EcosystemMap (display)
+│           ├── editor/              # state hooks, editor, group inspector, appearance and data panels
 │           └── index.ts             # public entry
 └── apps/
     └── gallery/                     # private development gallery (never published)
@@ -135,6 +142,7 @@ import { MethodologyFlowEditor, DEFAULT_METHODOLOGY } from "@agile-infographics/
 - Each package's README documents its full API:
   [tom-wheel](packages/tom-wheel/README.md),
   [methodology-flow](packages/methodology-flow/README.md),
+  [ecosystem-map](packages/ecosystem-map/README.md),
   [core](packages/core/README.md).
 
 ### Distribution
@@ -311,6 +319,66 @@ infographic is read-only.
 
 ---
 
+## Component 03 — Ecosystem & Interfaces Map
+
+A central entity in the middle of the groups around it, such as functions,
+teams, stakeholders, partners or interfaces. Each group lists its own items and
+is joined to the centre by a connector.
+
+- **No built-in wording.** All content comes from data, so the same component
+  serves IT governance, digital transformation, operating models, stakeholder
+  maps, product ecosystems and so on.
+- **Gallery examples:** three contexts (IT Quality, Digital Transformation,
+  Operating Model), each with a different number of groups and a different
+  theme.
+
+**Data:**
+- **Centre:** id, title, subtitle, icon and style.
+- **Groups:** id, title, description, icon, colour, preferred side, visibility
+  and items.
+- **Items:** id, label, description, icon, link and tag.
+- **Connections:** source and target, label, visibility, line style and arrow
+  direction.
+- **Validation:** `normalizeEcosystem()` / `validateEcosystem()` complete
+  optional fields and report errors and corrections.
+
+**Layout:** the pure `layout.ts` picks a mode from the measured width:
+- **radial:** groups on four sides of the centre
+- **columns:** two columns joined by a spine
+- **stack:** one column
+
+Groups are placed clockwise from 12 o'clock with balanced sides, and a group
+can be pinned to a side. Cards are laid out by CSS grid, so they never overlap.
+Connectors are drawn from measured positions and routed through the gaps
+between cards.
+
+**Display and editing:**
+- **Display:** `EcosystemMap` (`/renderer`) has no editing controls. Viewers
+  can hover, select (keyboard too), expand long groups and open links.
+- **Editing:** `EcosystemMapEditor` edits text in place, and adds, deletes
+  (with Undo) and reorders groups and items. A **Selected group** panel holds
+  the position, colour, visibility and connection settings plus item links,
+  tags and icons. It also has an **Appearance** panel and JSON
+  import / export.
+- **`readOnly`:** turns the editor into the display-only map for viewers who
+  may not edit.
+
+```tsx
+import { EcosystemMapEditor, EcosystemMap, DEFAULT_ECOSYSTEM } from "@agile-infographics/ecosystem-map";
+
+<EcosystemMapEditor defaultData={myEcosystem} storageKey="project-c.ecosystem" defaultAppearance={{ base: "#0f766e", scheme: "light" }} />
+<EcosystemMap data={myEcosystem} appearance={{ connector: "elbow", cardStyle: "outline" }} />
+```
+
+**Storage** (gallery):
+- content: `agile-infographics.ecosystem-map.<example>.v1`
+- appearance: `agile-infographics.ecosystem-map.<example>.v1.appearance`
+
+See the [package README](packages/ecosystem-map/README.md) for the full data
+model, props and appearance options.
+
+---
+
 ## Smart theme customisation (shared)
 
 `packages/core/src/theme/` turns one base colour into a complete, semantic
@@ -330,8 +398,10 @@ palette that any component can map onto its own CSS variables.
    such as step nodes and dimension nodes. Each item's text or icon colour is
    chosen automatically by `readableOn()`.
 5. **Map to the component.** Each component has an adapter:
-   `paletteToWheelTheme()` (component 01) and `paletteToMethodologyTheme()`
-   (component 02). Components contain no theme colours.
+   `paletteToWheelTheme()` (component 01), `paletteToMethodologyTheme()`
+   (component 02) and `paletteToEcosystemTheme()` (component 03, with a
+   secondary colour and dark or light schemes). Components contain no theme
+   colours.
 
 ### Methodology Flow appearance
 
@@ -397,7 +467,8 @@ palette that any component can map onto its own CSS variables.
 ## Known limitations (prototype v0.7)
 
 - Data lives only in the browser where it was edited. There is no sharing
-  between people or devices, and no import or export yet.
+  between people or devices. Only the Ecosystem Map has JSON import / export
+  (and an `onChange` callback a host can use to save elsewhere).
 - TOM Wheel:
   - At 11–12 components the labels get small.
   - Wheel labels on the muted segments keep the approved design's contrast,
@@ -408,6 +479,18 @@ palette that any component can map onto its own CSS variables.
   - The dimension legend shows icons while editing, whatever the node display
     setting.
   - Very long centre labels are clamped to 3 lines in read-only mode.
+- Ecosystem & Interfaces Map:
+  - Connections run between the centre and the groups only, not from one
+    group to another. Connections between two groups are reported and ignored
+    on import.
+  - Connector labels in the wide layout are short pills. Longer text is
+    shortened with "…", and the full text is in the tooltip. In the two
+    narrow layouts the label appears inside the card.
+  - The centre title is limited to 60 characters, and its text gets smaller
+    for long titles. In read-only mode it is clamped to 5 lines.
+  - The automatic group colour ramp is subtle when the primary and secondary
+    hues are close. Choose a secondary colour or per-group colours for more
+    contrast between groups.
 - Some manual colour overrides can reduce contrast. They are flagged in the
   Appearance panel, not blocked.
 - The browser test suites (`npm test`) run locally and need an installed

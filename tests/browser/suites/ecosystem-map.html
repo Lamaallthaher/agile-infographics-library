@@ -1,0 +1,367 @@
+<!doctype html><html><body style="margin:0;background:#fff">
+<iframe id="f" style="border:0;width:1400px;height:900px"></iframe>
+<pre id="out" style="font:13px monospace;white-space:pre-wrap">waiting</pre>
+<script>
+// Ecosystem & Interfaces Map: data model and validation, dynamic layout and connectors,
+// editing (add / edit / delete / reorder), display-only mode, responsiveness,
+// keyboard and accessibility, persistence.
+const EX = 'it-quality', KEY = `agile-infographics.ecosystem-map.${EX}.v1`, AKEY = KEY + '.appearance';
+const HASH = `#/ecosystem-map/${EX}`;
+const f = document.getElementById('f'); const R = []; const errors = []; const notes = [];
+const ok = (n, c, extra = '') => R.push((c ? 'PASS ' : 'FAIL ') + n + (c ? '' : '  ' + extra));
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let d, w;
+function load(width = 1400, hash = HASH) {
+  f.style.width = width + 'px';
+  return new Promise(res => {
+    f.onload = async () => {
+      d = f.contentDocument; w = f.contentWindow;
+      w.addEventListener('error', e => errors.push(String(e.message)));
+      const ce = w.console.error; w.console.error = (...a) => { errors.push(a.join(' ')); ce.apply(w.console, a); };
+      for (let i = 0; i < 60 && !d.querySelector('.em-card, .em-invalid'); i++) await wait(100);
+      const st = d.createElement('style'); st.textContent = '*{transition:none!important}'; d.head.appendChild(st);
+      await wait(250); res();
+    };
+    f.src = '/index.html?' + Math.random() + hash;
+  });
+}
+const $ = s => d.querySelector(s), $$ = s => [...d.querySelectorAll(s)];
+function type(el, text) {
+  el.focus();
+  const proto = el.tagName === 'TEXTAREA' ? w.HTMLTextAreaElement.prototype : w.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, text);
+  el.dispatchEvent(new w.Event('input', { bubbles: true }));
+}
+const click = el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+const key = (el, k, extra = {}) => el.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true, ...extra }));
+const stored = () => JSON.parse(w.localStorage.getItem(KEY));
+const field = re => $$('textarea').find(t => re.test(t.getAttribute('aria-label') || ''));
+const cards = () => $$('.em-card');
+const card = id => $(`.em-card[data-group="${id}"]`);
+const mode = () => $('.em-stage').dataset.mode;
+const overlap = (a, b, pad = 0) => a.left < b.right - pad && b.left < a.right - pad && a.top < b.bottom - pad && b.top < a.bottom - pad;
+const groupTool = (id, action) => card(id).querySelector(`.eme-group-tools [data-action="${action}"]`);
+const view = name => click($$('.gl-view button').find(b => b.textContent.trim() === name));
+const nums = s => (s.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+const seg = (scope, label, text) => [...scope.querySelector(`[role=group][aria-label="${label}"]`).querySelectorAll('button')].find(b => b.textContent.trim() === text);
+
+/** Expected balanced side counts for n automatically placed groups (layout.ts). */
+function targets(n) {
+  if (n === 1) return { top: 0, right: 1, bottom: 0, left: 0 };
+  const c = Math.min(3, Math.floor(n / 2)), rest = n - 2 * c;
+  return { top: Math.ceil(rest / 2), right: c, bottom: Math.floor(rest / 2), left: c };
+}
+
+/** Visual-integrity checks for whatever is currently rendered. */
+function integrity(tag, expectMode) {
+  const bad = [];
+  const cs = cards(), rects = cs.map(c => c.getBoundingClientRect());
+  const centre = $('.em-center').getBoundingClientRect();
+  const C = { x: (centre.left + centre.right) / 2, y: (centre.top + centre.bottom) / 2, r: centre.width / 2 };
+  // Cards never overlap each other or the centre.
+  rects.forEach((a, i) => { rects.forEach((b, j) => { if (i < j && overlap(a, b, 1)) bad.push(`cards ${i}/${j} overlap`); }); if (overlap(a, centre, 1)) bad.push(`card ${i} over centre`); });
+  // Connectors: one per connected visible group; start on the centre circle, end on the group's card edge.
+  const svg = $('.em-links').getBoundingClientRect();
+  const links = $$('.em-link');
+  const connected = cs.filter(c => !c.classList.contains('is-hidden') && /^Connected/.test(c.querySelector('.em-card-head .em-visually-hidden').textContent));
+  if (links.length !== connected.length) bad.push(`links ${links.length} != connected groups ${connected.length}`);
+  links.forEach(l => {
+    const id = l.dataset.link, c = card(id);
+    if (!c) return bad.push(`link to missing card ${id}`);
+    const p = nums(l.querySelector('path').getAttribute('d'));
+    const s = { x: svg.left + p[0], y: svg.top + p[1] }, e = { x: svg.left + p[p.length - 2], y: svg.top + p[p.length - 1] };
+    if (Math.abs(Math.hypot(s.x - C.x, s.y - C.y) - C.r) > 2.5) bad.push(`link ${id} does not start on the centre (${Math.round(Math.hypot(s.x - C.x, s.y - C.y))} vs r ${Math.round(C.r)})`);
+    const r = c.getBoundingClientRect();
+    const inX = e.x >= r.left - 2 && e.x <= r.right + 2, inY = e.y >= r.top - 2 && e.y <= r.bottom + 2;
+    const onEdge = inX && inY && (Math.abs(e.x - r.left) < 2 || Math.abs(e.x - r.right) < 2 || Math.abs(e.y - r.top) < 2 || Math.abs(e.y - r.bottom) < 2);
+    if (!onEdge) bad.push(`link ${id} does not end on its card`);
+  });
+  // Connector labels never cover a card or the centre.
+  $$('.em-link-label').forEach(l => {
+    const r = l.getBoundingClientRect();
+    rects.forEach((c, i) => { if (overlap(r, c, 1)) bad.push(`label ${l.dataset.linkLabel} over card ${i}`); });
+    // Against the centre circle (not its bounding square): nearest point of the label to the centre.
+    const nx = Math.max(r.left, Math.min(C.x, r.right)), ny = Math.max(r.top, Math.min(C.y, r.bottom));
+    if (Math.hypot(nx - C.x, ny - C.y) < C.r - 2) bad.push(`label ${l.dataset.linkLabel} over centre`);
+  });
+  // Centre text stays inside the centre.
+  const disc = $('.em-center-disc').getBoundingClientRect();
+  [...$('.em-center-disc').children].forEach(ch => { const r = ch.getBoundingClientRect(); if (r.width && (r.left < disc.left - 1 || r.right > disc.right + 1 || r.top < disc.top - 1 || r.bottom > disc.bottom + 1)) bad.push('centre content outside the centre'); });
+  // Nothing overflows the panel horizontally; the page never scrolls sideways; editable text is never clipped.
+  const panel = $('.em-panel').getBoundingClientRect();
+  $$('.em-panel *').forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.right > panel.right + 1 || r.left < panel.left - 1) && !e.closest('.te-icon-menu')) bad.push('overflow ' + (e.className.baseVal ?? e.className)); });
+  $$('.em textarea').forEach(t => { if (t.scrollHeight > t.clientHeight + 2) bad.push('clipped ' + t.getAttribute('aria-label')); });
+  const de = d.documentElement; if (de.scrollWidth > de.clientWidth + 1) bad.push(`page h-overflow ${de.scrollWidth}>${de.clientWidth}`);
+  ok(`[${tag}] ${cs.length} groups, mode=${mode()}: no overlap, connectors attached, labels clear, nothing clipped or overflowing`, bad.length === 0, JSON.stringify([...new Set(bad)].slice(0, 8)));
+  if (expectMode) ok(`[${tag}] layout mode ${expectMode}`, mode() === expectMode, mode());
+  notes.push(`${tag}: mode=${mode()} groups=${cs.length} links=${links.length}`);
+}
+
+/** Balanced, clockwise side placement for all-automatic groups (radial). */
+function sidesCheck(tag) {
+  const n = cards().length, t = targets(n);
+  const got = Object.fromEntries(['top', 'right', 'bottom', 'left'].map(s => [s, $$(`.em-side-${s} > .em-card`).length]));
+  ok(`[${tag}] ${n} groups balanced on the sides ${JSON.stringify(got)}`, JSON.stringify(got) === JSON.stringify(t), JSON.stringify(t));
+}
+
+const gen = (n, m, extra = {}) => ({
+  version: 1,
+  title: extra.title ?? 'Generated map',
+  center: { id: 'hub', title: extra.center ?? 'Hub' },
+  groups: Array.from({ length: n }, (_, i) => ({
+    id: 'g' + i, title: (extra.groupTitle ?? 'Group ') + i,
+    items: Array.from({ length: typeof m === 'function' ? m(i) : m }, (_, j) => ({ id: `g${i}-i${j}`, label: (extra.label ?? 'Item ') + j, ...(extra.item || {}) })),
+  })),
+});
+async function importData(obj) {
+  const ta = $('.eme-data textarea:not([readonly])');
+  type(ta, typeof obj === 'string' ? obj : JSON.stringify(obj)); await wait(30);
+  click($('[data-action="import"]')); await wait(200);
+  return $('.eme-import-result').textContent;
+}
+
+async function run() {
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY);
+  await load(1400);
+
+  // ---- Default example, wide layout ----
+  const s0 = stored();
+  ok('example loads from data: 6 groups, 19 items, centre "IT Quality"', cards().length === 6 && $$('.em-item').length === 19 && /IT Quality/.test(field(/^Central entity$/).value) && s0.groups.length === 6);
+  ok('normalised storage: one connection per group, in group order', s0.connections.length === 6 && s0.connections.every((c, i) => [c.source, c.target].includes(s0.groups[i].id)));
+  integrity('default 1400', 'radial');
+  sidesCheck('default');
+  const ids = s0.groups.map(g => g.id);
+  const right = $$('.em-side-right > .em-card'), left = $$('.em-side-left > .em-card');
+  const ys = els => els.map(e => e.getBoundingClientRect().top);
+  ok('clockwise order: right column = groups 1–3 top→bottom', right.map(c => c.dataset.group).join() === ids.slice(0, 3).join() && ys(right).every((y, i, a) => !i || y > a[i - 1]));
+  ok('clockwise order: left column = groups 4–6 bottom→top', left.map(c => c.dataset.group).join() === ids.slice(3).join() && ys(left).every((y, i, a) => !i || y < a[i - 1]));
+  ok('connector labels from data are drawn', $$('.em-link-label').length === 6 && $$('.em-link-label').some(l => l.textContent === 'Quality gates'));
+  ok('arrowheads follow the direction (both ways = 2 arrows)', $(`.em-link[data-link="development"]`).querySelectorAll('.em-link-arrow').length === 2 && $(`.em-link[data-link="leadership"]`).querySelectorAll('.em-link-arrow').length === 1);
+  ok('dashed connector style rendered', $(`.em-link[data-link="other"]`).dataset.style === 'dashed' && getComputedStyle($(`.em-link[data-link="other"] path`)).strokeDasharray !== 'none');
+
+  // ---- Inline editing ----
+  type(field(/^Central entity$/), 'Quality Office'); await wait(40);
+  ok('centre title edit saved', stored().center.title === 'Quality Office');
+  type(field(/^Group title \(group 1\)/), 'Executive Leadership'); await wait(40);
+  ok('group title edit saved', stored().groups[0].title === 'Executive Leadership');
+  const gt = field(/^Group title \(group 2\)/); type(gt, ''); gt.blur(); await wait(40);
+  ok('empty group title is restored on blur', stored().groups[1].title === 'Digital Transformation' && field(/^Group title \(group 2\)/).value === 'Digital Transformation');
+  type(field(/^Group description \(group 1\)/), 'Sets priorities.'); await wait(40);
+  ok('group description edit saved', stored().groups[0].description === 'Sets priorities.');
+  type(field(/^Item \(group 1, item 1\)/), 'Board of directors'); await wait(40);
+  ok('item label edit saved', stored().groups[0].items[0].label === 'Board of directors');
+  type(field(/^Item detail \(group 1, item 1\)/), 'Meets quarterly.'); await wait(40);
+  ok('item detail edit saved', stored().groups[0].items[0].description === 'Meets quarterly.');
+  key(field(/^Item \(group 1, item 1\)/), 'Enter'); await wait(80);
+  ok('Enter in an item adds the next item and focuses it', stored().groups[0].items.length === 4 && stored().groups[0].items[1].label === '' && /group 1, item 2/.test(d.activeElement.getAttribute('aria-label') || ''));
+  key(d.activeElement, 'Backspace'); await wait(80);
+  ok('Backspace in an empty item removes it (no Undo for empty items)', stored().groups[0].items.length === 3 && !$('.eme-toast'));
+
+  // ---- Reorder ----
+  click(groupTool(ids[0], 'later')); await wait(80);
+  ok('move group later: order and clockwise position change', stored().groups[1].id === ids[0] && $$('.em-side-right > .em-card')[1].dataset.group === ids[0]);
+  ok('focus stays on the move button', d.activeElement === groupTool(ids[0], 'later'));
+  click(groupTool(ids[0], 'earlier')); await wait(80);
+  ok('move group earlier restores order', stored().groups.map(g => g.id).join() === ids.join());
+  ok('first group cannot move earlier', groupTool(ids[0], 'earlier').disabled && groupTool(ids[5], 'later').disabled);
+  const items0 = stored().groups[0].items.map(i => i.id);
+  click(card(ids[0]).querySelector(`[data-item="${items0[0]}"] [data-action="down"]`)); await wait(60);
+  ok('move item down', stored().groups[0].items.map(i => i.id).join() === [items0[1], items0[0], items0[2]].join());
+  key(field(/^Item \(group 1, item 2\)/), 'ArrowUp', { altKey: true }); await wait(80);
+  ok('Alt + ↑ in an item moves it up', stored().groups[0].items.map(i => i.id).join() === items0.join());
+  key(field(/^Group title \(group 1\)/), 'ArrowRight', { altKey: true }); await wait(80);
+  ok('Alt + → in a group title moves the group clockwise', stored().groups[1].id === ids[0]);
+  key(field(/^Group title \(group 2\)/), 'ArrowLeft', { altKey: true }); await wait(80);
+  ok('Alt + ← moves it back', stored().groups.map(g => g.id).join() === ids.join());
+
+  // ---- Delete + Undo ----
+  click(card(ids[2]).querySelector(`[data-item] [data-action="delete"]`)); await wait(60);
+  ok('delete item offers Undo', stored().groups[2].items.length === 2 && /Undo/.test($('.eme-toast')?.textContent || ''));
+  click($$('.eme-toast button').find(b => b.textContent === 'Undo')); await wait(60);
+  ok('Undo restores the item in place', stored().groups[2].items.length === 3 && stored().groups[2].items[0].id === 'data-gov');
+  click(groupTool(ids[1], 'delete')); await wait(80);
+  ok('delete group removes it and its connection', stored().groups.length === 5 && stored().connections.length === 5 && !card(ids[1]) && !$(`.em-link[data-link="${ids[1]}"]`));
+  integrity('5 groups after delete');
+  click($$('.eme-toast button').find(b => b.textContent === 'Undo')); await wait(80);
+  ok('Undo restores the group, position and connection', stored().groups[1].id === ids[1] && stored().connections[1].label === 'Assurance' && !!$(`.em-link[data-link="${ids[1]}"]`));
+
+  // ---- Group count 1 … 12 via the editor ----
+  while (cards().length > 1) { const c = cards()[cards().length - 1]; click(c.querySelector('.eme-group-tools [data-action="delete"]')); await wait(70);
+    const n = cards().length; if ([4, 3, 2, 1].includes(n)) { integrity(`${n} group${n > 1 ? 's' : ''}`, 'radial'); sidesCheck(`${n} groups`); } }
+  ok('minimum of 1 group: delete disabled', cards().length === 1 && cards()[0].querySelector('.eme-group-tools [data-action="delete"]').disabled);
+  while (cards().length < 12) { click($('[data-action="add-group"]')); await wait(70);
+    const n = cards().length; if ([2, 5, 7, 9, 12].includes(n)) { integrity(`${n} groups`, 'radial'); sidesCheck(`${n} groups`); } }
+  ok('maximum of 12 groups: Add group and insert disabled', $('[data-action="add-group"]').disabled && groupTool(cards()[0].dataset.group, 'insert').disabled && stored().groups.length === 12);
+  ok('new group focused for typing after add', /^Group title \(group 12\)/.test(d.activeElement.getAttribute('aria-label') || '') && d.activeElement.value === 'New group', String(d.activeElement.getAttribute('aria-label')));
+  ok('every new group gets a connection', stored().connections.length === 12 && $$('.em-link').length === 12);
+
+  // ---- Data import and validation ----
+  let msg = await importData('{ not json');
+  ok('import: invalid JSON is rejected, content unchanged', /Not valid JSON/.test(msg) && stored().groups.length === 12);
+  msg = await importData({ center: { title: 'X' }, groups: [] });
+  ok('import: 0 groups is an error', /not imported/.test(msg) && /between 1 and 12/.test(msg) && stored().groups.length === 12);
+  msg = await importData(gen(13, 1));
+  ok('import: 13 groups is an error', /not imported/.test(msg) && stored().groups.length === 12);
+  msg = await importData(gen(2, i => (i ? 21 : 1)));
+  ok('import: more than 20 items is an error', /at most 20/.test(msg));
+  msg = await importData({ groups: [{ id: 'a', title: 'A' }] });
+  ok('import: missing central entity is an error', /central entity is missing/.test(msg));
+  const messy = {
+    center: { title: 'Messy', icon: 'not-an-icon' },
+    groups: [
+      { id: 'dup', title: 'One', color: 'blue', side: 'diagonal', items: [{ id: 'x', label: 'Safe', href: 'https://example.com' }, { id: 'x', label: 'Bad link', href: 'javascript:alert(1)' }] },
+      { id: 'dup', title: 'Two' },
+      { title: 'Three (no id, no items)' },
+    ],
+    connections: [{ source: 'ghost', target: 'center' }, { source: 'dup', target: 'center', label: 'Kept', direction: 'forward' }, { source: 'dup', target: 'center', label: 'Second' }],
+  };
+  msg = await importData(messy);
+  const m = stored();
+  ok('import with corrections succeeds and lists them', /Imported 3 groups with \d+ corrections/.test(msg), msg.slice(0, 120));
+  ok('validation: duplicate and missing ids are made unique', new Set([m.center.id, ...m.groups.map(g => g.id), ...m.groups.flatMap(g => g.items.map(i => i.id))]).size === 1 + 3 + 2);
+  ok('validation: unsafe link removed, safe link kept', m.groups[0].items[1].href === '' && m.groups[0].items[0].href === 'https://example.com' && /javascript/.test(msg) === false && /links are allowed/.test(msg));
+  ok('validation: unknown icon, bad colour and bad side corrected', m.center.icon === null && m.groups[0].color === null && m.groups[0].side === 'auto');
+  ok('validation: unknown-id and duplicate connections ignored; defaults added', m.connections.length === 3 && m.connections[0].label === 'Kept' && m.connections[2].source === m.center.id && m.connections[2].visible);
+  ok('missing optional fields: group without items renders; items without icon show a dot', cards().length === 3 && cards()[2].querySelectorAll('.em-item').length === 0 && cards()[0].querySelectorAll('.em-item-dot').length === 2);
+  integrity('imported messy data');
+
+  // ---- Different item counts and long text ----
+  await importData(gen(4, i => [0, 1, 20, 7][i]));
+  const big = $$('.em-card')[2];
+  ok('editor collapses long groups too ("Show all 20 items")', big.querySelectorAll('.em-item').length === 6 && /Show all 20 items/.test(big.querySelector('.em-more')?.textContent || ''));
+  click(big.querySelector('.em-more')); await wait(80);
+  ok('0, 1, 20 and 7 items render; 20 is the per-group limit', $$('.em-card')[2].querySelectorAll('.em-item').length === 20 &&!$$('.em-card')[2].querySelector('[data-action="add-item"]') && /Maximum of 20/.test($$('.em-card')[2].textContent) && !!$$('.em-card')[0].querySelector('[data-action="add-item"]'));
+  integrity('0/1/20/7 items');
+  click($$('.em-card')[0].querySelector('[data-action="add-item"]')); await wait(80);
+  ok('Add item on an empty group adds and focuses it', stored().groups[0].items.length === 1 && /group 1, item 1/.test(d.activeElement.getAttribute('aria-label') || ''));
+  const L = n => ('Interface' + ' interface'.repeat(20)).slice(0, n);
+  const long = gen(6, 3, { center: L(60), groupTitle: L(57), label: L(98), title: L(100) });
+  long.center.subtitle = L(80);
+  long.groups.forEach(g => { g.description = L(240); g.items[0].description = L(240); g.items[1].tag = L(24); });
+  msg = await importData(long);
+  ok('long text at every maximum length imports without corrections', /Imported 6 groups\.$/.test(msg.trim()), msg.slice(0, 160));
+  integrity('maximum-length text 1400', 'radial');
+  const over = gen(1, 1); over.center.title = 'x'.repeat(200);
+  msg = await importData(over);
+  ok('too-long text is shortened (warning)', stored().center.title.length === 60 && /shortened/.test(msg));
+  await importData(long);
+  await load(800); integrity('maximum-length text 800', 'columns');
+  await load(390); integrity('maximum-length text 390', 'stack');
+
+  // ---- Reset, then inspector (structured settings) ----
+  await load(1400);
+  click($('[data-action="reset"]')); await wait(40);
+  ok('Reset asks for a second click', /Click again/.test($('[data-action="reset"]').textContent));
+  click($('[data-action="reset"]')); await wait(120);
+  ok('Reset restores the example', stored().groups.map(g => g.id).join() === ids.join() && cards().length === 6);
+  ok('no inspector until a group is selected', !$('.eme-inspector') && !!$('.eme-hint-card'));
+  field(/^Group title \(group 1\)/).focus(); await wait(60);
+  const ins = () => $('.eme-inspector');
+  ok('focusing a group selects it and opens its inspector', !!ins() && ins().dataset.inspector === ids[0] && card(ids[0]).classList.contains('is-selected'));
+  click(seg(ins(), 'Position (wide layout)', 'Left')); await wait(100);
+  ok('position Left: stored and the card moves to the left column', stored().groups[0].side === 'left' && !!$(`.em-side-left > .em-card[data-group="${ids[0]}"]`));
+  integrity('group 1 pinned left');
+  click(seg(ins(), 'Position (wide layout)', 'Top')); await wait(100);
+  ok('position Top: card in the top row, connector routed to its bottom edge', !!$(`.em-side-top > .em-card[data-group="${ids[0]}"]`));
+  integrity('group 1 pinned top');
+  click(seg(ins(), 'Position (wide layout)', 'Automatic')); await wait(80);
+  const chk = text => [...ins().querySelectorAll('label.eme-check')].find(l => l.textContent.includes(text)).querySelector('input');
+  click(chk('Show connector')); await wait(80);
+  ok('hide connector: stored, line removed, card says "Not connected"', stored().connections[0].visible === false && !$(`.em-link[data-link="${ids[0]}"]`) && /Not connected/.test(card(ids[0]).textContent));
+  click(chk('Show connector')); await wait(80);
+  click(seg(ins(), 'Line style', 'Dotted')); await wait(60);
+  ok('line style Dotted', stored().connections[0].style === 'dotted' && $(`.em-link[data-link="${ids[0]}"]`).dataset.style === 'dotted');
+  click(seg(ins(), 'Arrows', 'Both ways')); await wait(60);
+  ok('arrows Both ways: two arrowheads', stored().connections[0].direction === 'both' && $(`.em-link[data-link="${ids[0]}"]`).querySelectorAll('.em-link-arrow').length === 2);
+  click(seg(ins(), 'Arrows', 'To group')); await wait(60);
+  const c0 = stored().connections[0];
+  ok('arrows To group respects source/target (leadership is the source → backward)', c0.source === ids[0] && c0.direction === 'backward' && $(`.em-link[data-link="${ids[0]}"]`).querySelectorAll('.em-link-arrow').length === 1);
+  type(ins().querySelector('input[placeholder^="For example: Reports"]'), 'Sponsors'); await wait(80);
+  ok('connector label edited', stored().connections[0].label === 'Sponsors' && $(`.em-link-label[data-link-label="${ids[0]}"]`).textContent === 'Sponsors');
+  const colour = ins().querySelector('input[aria-label="Group colour"]'); type(colour, '#d97706'); await wait(80);
+  const badge = card(ids[0]).querySelector('.eme-badge-wrap');
+  ok('custom group colour: stored and used by badge and connector', stored().groups[0].color === '#d97706' && /217, 119, 6/.test(getComputedStyle(badge).backgroundColor) && $(`.em-link[data-link="${ids[0]}"]`).style.getPropertyValue('--link') === '#d97706');
+  click(chk('Show in display mode')); await wait(80);
+  ok('hidden group: stored, dimmed with a flag in the editor, no connector', stored().groups[0].hidden && card(ids[0]).classList.contains('is-hidden') && /Hidden in display mode/.test(card(ids[0]).textContent) && !$(`.em-link[data-link="${ids[0]}"]`));
+  click(chk('Show group icon')); await wait(60);
+  ok('group icon can be removed', stored().groups[0].icon === null);
+  // Item details
+  field(/^Item \(group 2, item 1\)/).focus(); await wait(60);
+  ok('focusing an item selects its group and the item', ins().dataset.inspector === ids[1] && !!ins().querySelector('[data-item-inspector]'));
+  const link = ins().querySelector('input[type=url]');
+  type(link, 'javascript:alert(1)'); await wait(60);
+  ok('unsafe link is flagged and not saved', link.classList.contains('is-invalid') && stored().groups[1].items[0].href === '');
+  type(link, 'https://example.com/office'); await wait(60);
+  ok('valid link saved', stored().groups[1].items[0].href === 'https://example.com/office' && !link.classList.contains('is-invalid'));
+  type(ins().querySelector('input[placeholder^="For example: Weekly"]'), 'Owner'); await wait(60);
+  ok('item tag saved and shown', stored().groups[1].items[0].tag === 'Owner' && card(ids[1]).querySelector('.em-item-tag').textContent === 'Owner');
+  click(ins().querySelector('.eme-item-icon-wrap .te-icon-button')); await wait(60);
+  click(ins().querySelector('.te-icon-option[aria-label="Data"]')); await wait(60);
+  ok('item icon chosen with the icon picker', stored().groups[1].items[0].icon === 'database' && !!card(ids[1]).querySelector('.em-item-icon svg'));
+  click(card(ids[1]).querySelector('.eme-badge-wrap .te-icon-button')); await wait(60);
+  click(card(ids[1]).querySelector('.te-icon-option[aria-label="Launch"]')); await wait(60);
+  ok('group icon chosen on the card', stored().groups[1].icon === 'rocket');
+
+  // ---- Display-only mode ----
+  // add a long group to see collapsing in display mode
+  for (let i = 0; i < 5; i++) { click(card(ids[2]).querySelector('[data-action="add-item"]')); await wait(40); type(d.activeElement, 'Extra ' + i); await wait(20); }
+  const saved = JSON.stringify(stored());
+  view('Display'); await wait(250);
+  ok('display mode: no editing controls at all', $$('.gl-main textarea, .gl-main input').length === 0 && !$('[data-action]') && !$('.eme-toolbar, .eme-inspector, .eme-appearance, .eme-data, .eme-tools'));
+  ok('display mode: same content, hidden group left out', cards().length === 5 && !card(ids[0]) && $('.em-center-title').textContent === 'IT Quality');
+  integrity('display 1400', 'radial');
+  ok('display mode: links render as safe anchors', (() => { const a = card(ids[1]).querySelector('a.em-item-link'); return a && a.getAttribute('href') === 'https://example.com/office' && a.rel.includes('noopener') && a.target === '_blank'; })());
+  const more = card(ids[2]).querySelector('.em-more');
+  ok('long group collapses after 6 with "Show all 8 items"', !!more && card(ids[2]).querySelectorAll('.em-item').length === 6 && /Show all 8/.test(more.textContent) && more.getAttribute('aria-expanded') === 'false');
+  click(more); await wait(80);
+  ok('Show all expands (aria-expanded) and Show fewer collapses', card(ids[2]).querySelectorAll('.em-item').length === 8 && card(ids[2]).querySelector('.em-more').getAttribute('aria-expanded') === 'true');
+  integrity('display expanded group');
+  click(card(ids[2]).querySelector('.em-more')); await wait(60);
+  const sel = id => card(id).querySelector('.em-card-select');
+  click(sel(ids[3])); await wait(80);
+  ok('selecting a group: pressed, emphasised; others dimmed; its connector highlighted', sel(ids[3]).getAttribute('aria-pressed') === 'true' && card(ids[3]).classList.contains('is-selected') && card(ids[4]).classList.contains('is-dimmed') && $(`.em-link[data-link="${ids[3]}"]`).classList.contains('is-active') && getComputedStyle($(`.em-link[data-link="${ids[4]}"]`)).opacity < 0.5);
+  click(sel(ids[3])); await wait(60);
+  ok('clicking again clears the selection', sel(ids[3]).getAttribute('aria-pressed') === 'false' && !$('.em-card.is-dimmed'));
+  card(ids[4]).dispatchEvent(new w.MouseEvent('mouseover', { bubbles: true, relatedTarget: d.body })); await wait(60);
+  ok('hovering a group highlights its connector and label', $(`.em-link[data-link="${ids[4]}"]`).classList.contains('is-active') && $(`.em-link-label[data-link-label="${ids[4]}"]`).classList.contains('is-active'));
+  card(ids[4]).dispatchEvent(new w.MouseEvent('mouseout', { bubbles: true, relatedTarget: d.body })); await wait(40);
+  // Keyboard
+  sel(ids[1]).focus(); key(sel(ids[1]), 'ArrowRight'); await wait(40);
+  ok('→ moves focus to the next group (data order)', d.activeElement === sel(ids[2]));
+  key(d.activeElement, 'ArrowLeft'); key(d.activeElement, 'ArrowLeft'); await wait(40);
+  ok('← wraps around to the last group', d.activeElement === sel(ids[5]));
+  key(d.activeElement, 'Home'); await wait(40);
+  ok('Home goes to the first visible group', d.activeElement === sel(ids[1]));
+  click(d.activeElement); await wait(40); key(d.activeElement, 'Escape'); await wait(40);
+  ok('Escape clears the selection', !$('.em-card.is-selected'));
+  ok('accessible names: map group, cards labelled by their title, connection described', /IT Quality and 5 connected groups/.test($('.em-stage').getAttribute('aria-label')) && cards().every(c => c.getAttribute('aria-labelledby') && d.getElementById(c.getAttribute('aria-labelledby'))) && /Connected to IT Quality: Assurance \(from the centre\)/.test(card(ids[1]).textContent));
+  ok('decorative connector SVG hidden from assistive technology', $('.em-links').getAttribute('aria-hidden') === 'true');
+  await load(800); view('Display'); await wait(200);
+  integrity('display 800', 'columns');
+  ok('compact layouts show connector labels inside the cards', /Assurance/.test(card(ids[1]).querySelector('.em-card-relation')?.textContent || ''));
+  await load(390); view('Display'); await wait(200);
+  integrity('display 390', 'stack');
+  view('Edit'); await wait(200);
+  ok('back to Edit: controls return, content unchanged', !!$('.eme-toolbar') && JSON.stringify(stored()) === saved);
+
+  // ---- Persistence and storage ----
+  await load(1400);
+  ok('after reload: all edits persisted', JSON.stringify(stored()) === saved && cards().length === 6 && card(ids[0]).classList.contains('is-hidden'));
+  const other = 'agile-infographics.ecosystem-map.digital-transformation.v1';
+  localStorage.removeItem(other); localStorage.removeItem(other + '.appearance');
+  await load(1400, '#/ecosystem-map/digital-transformation');
+  ok('another example uses its own storage key and content', JSON.parse(localStorage.getItem(other)).center.title === 'Transformation Office' && JSON.stringify(stored()) === saved && cards().length === 6);
+  localStorage.setItem(KEY, '{"version":1,"center":{"title":"x"},"groups":"oops"}');
+  await load(1400);
+  ok('invalid stored data falls back to the example', cards().length === 6 && stored().groups.length === 6 && stored().center.title === 'IT Quality');
+  localStorage.setItem(KEY, 'not json at all');
+  await load(1400);
+  ok('corrupt stored data falls back to the example', cards().length === 6);
+  integrity('after fallback', 'radial');
+
+  ok('no console errors / exceptions', errors.length === 0, JSON.stringify(errors.slice(0, 5)));
+  localStorage.removeItem(KEY); localStorage.removeItem(AKEY); localStorage.removeItem(other); localStorage.removeItem(other + '.appearance');
+  document.getElementById('out').textContent = 'SUMMARY ' + R.filter(x => x.startsWith('PASS')).length + '/' + R.length + ' passed\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n') + '\n\n' + notes.join('\n');
+}
+run().catch(e => { document.getElementById('out').textContent = 'CRASH ' + e.stack + '\n' + R.filter(x => x.startsWith('FAIL')).join('\n') + '\n----\n' + R.join('\n'); });
+</script></body></html>
