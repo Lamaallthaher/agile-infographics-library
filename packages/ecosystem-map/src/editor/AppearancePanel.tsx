@@ -157,7 +157,7 @@ export function EcosystemAppearancePanel({ appearance: a, theme, onChange, onRes
           label="Centre style"
           value={centerStyle}
           options={[
-            { value: "rings", label: "Rings" },
+            { value: "rings", label: "Segmented ring" },
             { value: "solid", label: "Solid" },
             { value: "outline", label: "Outline" },
           ]}
@@ -233,6 +233,15 @@ export function EcosystemAppearancePanel({ appearance: a, theme, onChange, onRes
             { value: "selected", label: "Selected group" },
           ]}
           onChange={(itemDetails) => onChange({ itemDetails })}
+        />
+        <Segmented
+          label="Direction arrows"
+          value={a.connectorArrows ? "on" : "off"}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "on", label: "On" },
+          ]}
+          onChange={(v) => onChange({ connectorArrows: v === "on" })}
         />
       </div>
 

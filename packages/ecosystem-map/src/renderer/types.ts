@@ -175,6 +175,8 @@ export interface EcosystemAppearance {
   /** Groups with more items show the first N and a "Show all" toggle. 0 = never collapse. */
   collapseAfter: number;
   itemDetails: ItemDetails;
+  /** Draw arrowheads for directed connections (default false: clean lines ending in ports). */
+  connectorArrows: boolean;
 }
 
 /** All colours used by the component; every field becomes an --em-* CSS variable. */
@@ -201,6 +203,8 @@ export interface EcosystemTheme {
   connectorActive: string;
   centerFill: string;
   centerRing: string;
+  /** Segments of the ring around the centre (the selected group's segment uses connectorActive). */
+  ringSegment: string;
   centerText: string;
   centerSubtitle: string;
   /** Group colours run from groupFrom to groupTo (or all groupFrom when uniform). */

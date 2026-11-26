@@ -323,6 +323,7 @@ export const DEFAULT_ECOSYSTEM_APPEARANCE: EcosystemAppearance = {
   groupColoring: "uniform",
   collapseAfter: 6,
   itemDetails: "always",
+  connectorArrows: false,
 };
 
 /** Completes a partial appearance (client props) with defaults; invalid values fall back. */
@@ -368,5 +369,6 @@ export function parseAppearance(raw: unknown, fallback: EcosystemAppearance = DE
     groupColoring: pick(raw.groupColoring, ["uniform", "ramp"] as const, fallback.groupColoring),
     collapseAfter: pick(raw.collapseAfter, COLLAPSE_OPTIONS.map((o) => o.value), fallback.collapseAfter),
     itemDetails: pick(raw.itemDetails, ["always", "selected"] as const, fallback.itemDetails),
+    connectorArrows: raw.connectorArrows === true || raw.connectorArrows === false ? raw.connectorArrows : fallback.connectorArrows,
   };
 }

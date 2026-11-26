@@ -117,25 +117,26 @@
 
 .em-link {
   color: var(--link, var(--em-connector));
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, color 0.2s ease;
 }
 
+/* Thin, quiet lines; the selected group's connector is brighter and slightly heavier. */
 .em-link-path {
   fill: none;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   transition: stroke-width 0.15s ease;
 }
 
 .em-link[data-style="dashed"] .em-link-path {
-  stroke-dasharray: 7 6;
+  stroke-dasharray: 6 5;
 }
 
 .em-link[data-style="dotted"] .em-link-path {
-  stroke-width: 2.6;
-  stroke-dasharray: 0.1 6.5;
+  stroke-width: 2.2;
+  stroke-dasharray: 0.1 5.5;
 }
 
 .em-link-arrow {
@@ -147,45 +148,34 @@
 }
 
 .em-link.is-active .em-link-path {
-  stroke-width: 3.2;
+  stroke-width: 2.6;
 }
 
-.em[data-has-selection]:not(.is-editable) .em-link:not(.is-active) {
-  opacity: 0.35;
+.em[data-has-selection] .em-link:not(.is-active),
+.em[data-has-selection] .em-port:not(.is-active) {
+  opacity: 0.4;
 }
 
-.em-link-label {
+/* Ports: small open circles where connectors meet the cards (above the card edge). */
+.em-ports {
   position: absolute;
+  top: 0;
+  left: 0;
   z-index: 2;
-  display: block;
-  max-width: calc(var(--em-link-zone) * 0.85 + 1em);
-  padding: 0.18em 0.6em;
-  border: 1px solid var(--link, var(--em-connector));
-  border-radius: 999px;
-  background: var(--em-label-fill);
-  color: var(--em-label-text);
-  font-size: 0.72em;
-  font-weight: 700;
-  line-height: 1.3;
-  white-space: nowrap;
-  transform: translate(-50%, -50%);
+  overflow: visible;
   pointer-events: none;
 }
 
-.em-link-label > span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.em-port {
+  fill: var(--em-panel);
+  stroke: var(--link, var(--em-connector));
+  stroke-width: 1.5;
+  transition: opacity 0.2s ease, stroke 0.2s ease;
 }
 
-.em-link-label.is-active {
-  border-color: var(--em-connector-active);
-  color: var(--em-heading);
-}
-
-/* Labels of top/bottom rows sit on the bus and may use the card's width. */
-.em-stage[data-mode="radial"] .em-link-label[data-row] {
-  max-width: 14em;
+.em-port.is-active {
+  stroke: var(--em-connector-active);
+  stroke-width: 2;
 }
 
 /* ---------- Centre ---------- */
@@ -211,6 +201,7 @@
   border-radius: 50%;
 }
 
+
 .em-center-disc {
   position: relative;
   z-index: 1;
@@ -230,29 +221,44 @@
   hyphens: auto;
 }
 
-/* Rings: the disc sits inside two concentric rings (the default emphasis). */
-.em-center[data-style="rings"]::before,
-.em-center[data-style="rings"]::after {
-  content: "";
+/* Rings (default): a segmented ring, one segment per group, around a bordered disc.
+   The selected group's segment is highlighted. */
+.em-ring {
   position: absolute;
-  border-radius: 50%;
-}
-
-.em-center[data-style="rings"]::before {
   inset: 0;
-  background: var(--em-center-ring);
+  width: 100%;
+  height: 100%;
+  overflow: visible;
 }
 
-.em-center[data-style="rings"]::after {
-  inset: 5.5%;
-  border: 2px solid var(--em-center-ring);
-  background: var(--em-panel);
+.em-ring-seg {
+  fill: var(--em-ring-segment);
+  transition: fill 0.2s ease;
+}
+
+circle.em-ring-seg {
+  fill: none;
+  stroke: var(--em-ring-segment);
+  stroke-width: 10;
+}
+
+.em-ring-seg.is-active {
+  fill: var(--em-connector-active);
+}
+
+circle.em-ring-seg.is-active {
+  fill: none;
+  stroke: var(--em-connector-active);
 }
 
 .em-center[data-style="rings"] .em-center-disc {
-  width: 84%;
-  height: 84%;
-  padding: 11%;
+  width: 74%;
+  height: 74%;
+  padding: 4%;
+  /* A deep disc inside the lighter ring, with a thin light rim. */
+  border: 2px solid color-mix(in srgb, var(--em-center-text) 22%, var(--em-center-fill));
+  background: color-mix(in srgb, var(--em-center-fill) 62%, var(--em-panel));
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
 }
 
 .em-center[data-style="outline"] .em-center-disc {
@@ -290,6 +296,30 @@
 .em-center[data-len="long"] .em-center-icon svg {
   width: 1.4em;
   height: 1.4em;
+}
+
+/* Inside the ring the disc is smaller: long titles and subtitles get tighter type so they always fit. */
+.em-center[data-style="rings"][data-len="medium"] .em-center-title {
+  font-size: 0.98em;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-disc {
+  gap: 0.15em;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-title {
+  font-size: 0.76em;
+  line-height: 1.12;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-subtitle {
+  font-size: 0.64em;
+  line-height: 1.15;
+}
+
+.em-center[data-style="rings"][data-len="long"] .em-center-icon svg {
+  width: 1.15em;
+  height: 1.15em;
 }
 
 .em-center-subtitle {
@@ -430,6 +460,11 @@
   opacity: 0.6;
 }
 
+/* In the editor other groups dim more gently, so they stay easy to edit. */
+.em.is-editable .em-card.is-dimmed {
+  opacity: 0.8;
+}
+
 .em-card.is-hidden {
   border-style: dashed;
   opacity: 0.6;
@@ -521,25 +556,6 @@
   font-size: 0.88em;
   line-height: 1.5;
 }
-
-.em-card-relation {
-  display: flex;
-  align-items: center;
-  gap: 0.45em;
-  margin: -0.15em 0 0;
-  color: var(--em-text-muted);
-  font-size: 0.76em;
-  font-weight: 700;
-}
-
-.em-card-relation-line {
-  flex: none;
-  width: 1.4em;
-  border-top: 2px solid var(--g);
-}
-
-.em-card-relation-line[data-style="dashed"] { border-top-style: dashed; }
-.em-card-relation-line[data-style="dotted"] { border-top-style: dotted; }
 
 /* ---------- Items ---------- */
 .em-items {

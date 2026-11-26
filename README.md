@@ -360,9 +360,19 @@ can be pinned to a side. Cards are laid out by CSS grid, so they never overlap.
 Connectors are drawn from measured positions and routed through the gaps
 between cards.
 
+**Look:**
+- **Centre:** a segmented ring with one segment per group, each facing its
+  group, around a bordered disc.
+- **Connectors:** thin lines with no text, ending in small ports on the card
+  edges. Each connector leaves from the middle of its group's segment.
+
 **Display and editing:**
+- **Selection is by click, tap or keyboard, never by hover.** The selected
+  group, its connector and its ring segment stay highlighted and the other
+  groups dim. Click the group again, click an empty area or press
+  <kbd>Esc</kbd> to clear.
 - **Display:** `EcosystemMap` (`/renderer`) has no editing controls. Viewers
-  can hover, select (keyboard too), expand long groups and open links.
+  can select groups, expand long groups and open links.
 - **Editing:** `EcosystemMapEditor` edits text in place, and adds, deletes
   (with Undo) and reorders groups and items. A **Selected group** panel holds
   the position, colour, visibility and connection settings plus item links,
@@ -548,9 +558,9 @@ palette that any component can map onto its own CSS variables.
   - Connections run between the centre and the groups only, not from one
     group to another. Connections between two groups are reported and ignored
     on import.
-  - Connector labels in the wide layout are short pills. Longer text is
-    shortened with "…", and the full text is in the tooltip. In the two
-    narrow layouts the label appears inside the card.
+  - A connection's relationship text (`label`) is not drawn on the map. It is
+    kept in the data, shown in the editor's Selected group panel and read out
+    by screen readers.
   - The centre title is limited to 60 characters, and its text gets smaller
     for long titles. In read-only mode it is clamped to 5 lines.
   - The automatic group colour ramp is subtle when the primary and secondary
