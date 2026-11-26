@@ -157,7 +157,7 @@ export function EcosystemAppearancePanel({ appearance: a, theme, onChange, onRes
           label="Centre style"
           value={centerStyle}
           options={[
-            { value: "rings", label: "Rings" },
+            { value: "rings", label: "Segmented ring" },
             { value: "solid", label: "Solid" },
             { value: "outline", label: "Outline" },
           ]}

@@ -90,6 +90,8 @@ export function paletteToEcosystemTheme(p: ThemePalette, options: EcosystemTheme
     connectorActive: ensureReadable(o.connector ?? second, panel, 3),
     centerFill,
     centerRing: withAlpha(lightPanel ? centerFill : second, lightPanel ? 0.16 : 0.3),
+    // Solid, muted tone of the palette, clearly lighter (dark scheme) or darker (light scheme) than the panel.
+    ringSegment: ensureReadable(lightPanel ? mixOklch(p.primary, panel, 0.55) : mixOklch(p.mutedStrong, panel, 0.25), panel, 1.8),
     centerText,
     centerSubtitle,
     groupFrom,
@@ -118,6 +120,7 @@ const VAR_NAMES: Record<keyof EcosystemTheme, string> = {
   connectorActive: "--em-connector-active",
   centerFill: "--em-center-fill",
   centerRing: "--em-center-ring",
+  ringSegment: "--em-ring-segment",
   centerText: "--em-center-text",
   centerSubtitle: "--em-center-subtitle",
   groupFrom: "--em-group-from",
@@ -152,7 +155,6 @@ export function checkEcosystemContrast(t: EcosystemTheme): ContrastCheck[] {
     ["Accent text on cards", t.accent, t.surface, 4.5],
     ["Centre title", t.centerText, t.centerFill, 4.5],
     ["Centre subtitle", t.centerSubtitle, t.centerFill, 4.5],
-    ["Connector labels", t.labelText, t.labelFill, 4.5],
   ];
   return pairs.map(([name, fg, bg, min]) => {
     const ratio = Math.round(contrast(fg, bg) * 100) / 100;

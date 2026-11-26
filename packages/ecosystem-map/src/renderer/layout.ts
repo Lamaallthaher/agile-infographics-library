@@ -104,6 +104,68 @@ export interface Circle extends Point {
   r: number;
 }
 
+/* ---------------------------------------------------------------------------
+ * Segmented centre ring
+ * ------------------------------------------------------------------------- */
+
+/** Angles in degrees, clockwise from 12 o'clock. */
+export interface RingSegment {
+  start: number;
+  end: number;
+  mid: number;
+}
+
+const norm = (deg: number) => ((deg % 360) + 360) % 360;
+
+/**
+ * Splits the ring into one equal segment per group and rotates it so that each
+ * segment faces its group: groups are taken in the order of their angle around
+ * the centre, and the ring's rotation is the circular mean of the offsets.
+ * Returns the segment of each input, in input order.
+ */
+export function ringSegments(anchorAngles: readonly number[]): RingSegment[] {
+  const n = anchorAngles.length;
+  if (n === 0) return [];
+  const step = 360 / n;
+  const order = anchorAngles.map((a, i) => ({ a: norm(a), i })).sort((x, y) => x.a - y.a);
+  let sx = 0;
+  let sy = 0;
+  order.forEach(({ a }, k) => {
+    const rad = ((a - k * step) * Math.PI) / 180;
+    sx += Math.cos(rad);
+    sy += Math.sin(rad);
+  });
+  const offset = n === 1 ? order[0].a : (Math.atan2(sy, sx) * 180) / Math.PI;
+  const out: RingSegment[] = new Array(n);
+  order.forEach(({ i }, k) => {
+    const mid = norm(offset + k * step);
+    out[i] = { start: norm(mid - step / 2), end: norm(mid + step / 2), mid: Math.round(mid * 100) / 100 };
+  });
+  return out;
+}
+
+/** Angle (degrees clockwise from 12 o'clock) of point `p` seen from `c`. */
+export function angleFrom(c: Point, p: Point): number {
+  return norm((Math.atan2(p.y - c.y, p.x - c.x) * 180) / Math.PI + 90);
+}
+
+/**
+ * SVG path of one ring segment (an annular sector) in a 100 × 100 box centred
+ * on (50, 50), between radii `inner` and `outer`, with `gap` degrees left open
+ * at each end so neighbouring segments are visibly separated.
+ */
+export function ringSegmentPath(seg: RingSegment, outer = 50, inner = 40, gap = 3): string {
+  const span = norm(seg.end - seg.start) || 360;
+  const a0 = seg.start + gap / 2;
+  const a1 = seg.start + span - gap / 2;
+  const p = (r: number, a: number) => {
+    const rad = (a * Math.PI) / 180;
+    return `${r2(50 + r * Math.sin(rad))} ${r2(50 - r * Math.cos(rad))}`;
+  };
+  const large = a1 - a0 > 180 ? 1 : 0;
+  return `M ${p(outer, a0)} A ${outer} ${outer} 0 ${large} 1 ${p(outer, a1)} L ${p(inner, a1)} A ${inner} ${inner} 0 ${large} 0 ${p(inner, a0)} Z`;
+}
+
 export interface ConnectorInput {
   mode: MapMode;
   /** Side of the group (radial mode); ignored in the other modes. */
@@ -116,6 +178,12 @@ export interface ConnectorInput {
   busY?: number;
   /** x of the vertical spine (columns and stack modes). */
   spineX?: number;
+  /**
+   * Radial mode: where the connector leaves the centre (degrees clockwise from
+   * 12 o'clock), normally the middle of the group's ring segment. Omitted =
+   * towards the card.
+   */
+  startAngle?: number;
 }
 
 export interface ConnectorPath {
@@ -204,24 +272,36 @@ function midOfLongest(points: Point[], prefer?: "last" | "first"): Point {
 export function routeConnector(input: ConnectorInput): ConnectorPath {
   const { mode, side, shape, center: C, anchor: E } = input;
   const corner = shape === "curved" ? 18 : shape === "elbow" ? 8 : 0;
+  // Point on the circle at a ring angle, and the outward direction there.
+  const radialAt = (deg: number) => {
+    const rad = (deg * Math.PI) / 180;
+    return { x: Math.sin(rad), y: -Math.cos(rad) };
+  };
+  const onCircle = (deg: number) => {
+    const u = radialAt(deg);
+    return { x: C.x + u.x * C.r, y: C.y + u.y * C.r };
+  };
+  const angle = input.startAngle;
 
   if (mode === "radial" && (side === "left" || side === "right")) {
     const dirX = side === "left" ? -1 : 1;
+    // The segment must face the card's side; otherwise leave towards the card.
+    const useAngle = angle !== undefined && radialAt(angle).x * dirX > 0.2;
     if (shape === "elbow") {
-      const S = { x: C.x + dirX * C.r, y: C.y };
+      const S = useAngle ? onCircle(angle!) : { x: C.x + dirX * C.r, y: C.y };
       const midX = (S.x + E.x) / 2;
       const pts = [S, { x: midX, y: S.y }, { x: midX, y: E.y }, E];
       return { d: roundedPath(pts, corner), label: midOfLongest(pts, Math.abs(E.y - S.y) > 4 ? "last" : undefined), start: S, end: E, startDir: { x: dirX, y: 0 }, endDir: { x: dirX, y: 0 } };
     }
-    // Leave the circle in the direction of the card.
-    const u = unit(C, E);
+    const u = useAngle ? radialAt(angle!) : unit(C, E);
     const S = { x: C.x + u.x * C.r, y: C.y + u.y * C.r };
     if (shape === "straight") {
-      return { d: `M ${pt(S)} L ${pt(E)}`, label: { x: (S.x + E.x) / 2, y: (S.y + E.y) / 2 }, start: S, end: E, startDir: u, endDir: u };
+      const along = unit(S, E);
+      return { d: `M ${pt(S)} L ${pt(E)}`, label: { x: (S.x + E.x) / 2, y: (S.y + E.y) / 2 }, start: S, end: E, startDir: along, endDir: along };
     }
-    // Curved: x-monotone cubic (it stays between the circle and the card), horizontal where it meets the card.
+    // Curved: leaves the ring radially, arrives horizontally (an S-curve between the ring and the card).
     const dx = Math.abs(E.x - S.x);
-    const c1 = { x: S.x + u.x * dx * 0.35, y: S.y + u.y * dx * 0.35 };
+    const c1 = { x: S.x + u.x * dx * 0.4, y: S.y + u.y * dx * 0.4 };
     const c2 = { x: E.x - dirX * dx * 0.5, y: E.y };
     const at = (t: number) => {
       const m = 1 - t;
@@ -236,7 +316,8 @@ export function routeConnector(input: ConnectorInput): ConnectorPath {
   if (mode === "radial") {
     // Top / bottom rows.
     const dirY = side === "top" ? -1 : 1;
-    const S = { x: C.x, y: C.y + dirY * C.r };
+    // Start from the segment only when it faces this row (so the first segment never crosses the centre).
+    const S = angle !== undefined && radialAt(angle).y * dirY > 0.5 ? onCircle(angle) : { x: C.x, y: C.y + dirY * C.r };
     const busY = input.busY ?? (S.y + E.y) / 2;
     const pts = [S, { x: S.x, y: busY }, { x: E.x, y: busY }, E];
     const straightUp = Math.abs(E.x - S.x) < 1;

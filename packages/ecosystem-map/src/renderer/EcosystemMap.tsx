@@ -10,7 +10,20 @@ import {
   type KeyboardEvent,
 } from "react";
 import { colorRamp, generatePalette, icons, readableOn, type IconKey } from "@agile-infographics/core";
-import { arrowEnds, assignSides, chooseMapMode, CLOCKWISE, routeConnector, type MapMode, type Point, type Side } from "./layout";
+import {
+  angleFrom,
+  arrowEnds,
+  assignSides,
+  chooseMapMode,
+  CLOCKWISE,
+  ringSegmentPath,
+  ringSegments,
+  routeConnector,
+  type MapMode,
+  type Point,
+  type RingSegment,
+  type Side,
+} from "./layout";
 import { DEFAULT_ECOSYSTEM_LIMITS, normalizeEcosystem, resolveAppearance } from "./model";
 import { ecosystemThemeToCssVars, paletteToEcosystemTheme } from "./theme";
 import type {
@@ -51,7 +64,7 @@ const DARK_INK = "#10202f";
 const RADIUS = { square: "0.3rem", soft: "0.85rem", round: "1.4rem" } as const;
 const GAP = { compact: "0.65rem", comfortable: "1rem", spacious: "1.5rem" } as const;
 const ZONE = { compact: "clamp(3rem, 6vw, 5.5rem)", comfortable: "clamp(3.5rem, 7.5vw, 7rem)", spacious: "clamp(4rem, 9vw, 8.5rem)" } as const;
-const CENTER_SIZE = { s: "10.5rem", m: "12.5rem", l: "15rem" } as const;
+const CENTER_SIZE = { s: "12rem", m: "14.5rem", l: "17rem" } as const;
 
 /** Read-only text: renders the element, or nothing when the value is empty. */
 function DefaultText({ value, className, as: Tag }: TextSlotProps) {
@@ -90,10 +103,8 @@ function useWidth<T extends HTMLElement>() {
 interface DrawnLink {
   groupId: string;
   d: string;
-  label: Point;
-  text: string;
-  /** Top or bottom row (radial): the label sits on the bus. */
-  row: boolean;
+  /** Where the connector meets the card (drawn as a small port). */
+  port: Point;
   style: EcosystemConnection["style"];
   color: string;
   arrows: { tip: Point; dir: Point }[];
@@ -103,11 +114,16 @@ interface Geometry {
   w: number;
   h: number;
   links: DrawnLink[];
+  /** Ring segment of each visible group. */
+  segments: { groupId: string; seg: RingSegment }[];
 }
 
+/** Radius of the port drawn where a connector meets a card. */
+const PORT_R = 3.5;
+
 const arrowPoints = ({ tip, dir }: { tip: Point; dir: Point }) => {
-  const len = 9;
-  const half = 4.5;
+  const len = 7;
+  const half = 3.5;
   const bx = tip.x - dir.x * len;
   const by = tip.y - dir.y * len;
   return `${tip.x},${tip.y} ${bx - dir.y * half},${by + dir.x * half} ${bx + dir.y * half},${by - dir.x * half}`;
@@ -159,7 +175,6 @@ export function EcosystemMap({
     if (!expandedGroupIds) setOwnExpanded((cur) => (next ? [...cur, id] : cur.filter((x) => x !== id)));
     onToggleExpanded?.(id, next);
   };
-  const [hover, setHover] = useState<string | null>(null);
 
   const groups = useMemo(() => (model ? model.groups.filter((g) => showHidden || !g.hidden) : []), [model, showHidden]);
   const mode: MapMode = chooseMapMode(width, groups.length, look.layout, look.typography.scale);
@@ -201,11 +216,10 @@ export function EcosystemMap({
     const middle = [hubR, c, wrap(":scope > .em-side-left"), wrap(":scope > .em-side-right")].filter((x): x is NonNullable<typeof x> => Boolean(x));
     const middleTop = Math.min(...middle.map((x) => x.top));
     const middleBottom = Math.max(...middle.map((x) => x.bottom));
-    const links: DrawnLink[] = [];
+    // Pass 1: where each visible group's card meets its connector.
+    const placed: { g: EcosystemGroup; side: Side; anchor: Point; busY?: number; spineX?: number }[] = [];
     for (const g of groups) {
       if (g.hidden) continue;
-      const conn = model.connections.find((x) => x.source === g.id || x.target === g.id);
-      if (!conn || !conn.visible) continue;
       const card = cards.current.get(g.id);
       if (!card) continue;
       const r = rel(card.getBoundingClientRect());
@@ -240,25 +254,44 @@ export function EcosystemMap({
           anchor = { x: r.left, y: headY };
         }
       }
-      const route = routeConnector({ mode, side, shape: look.connector, center: C, anchor, busY, spineX });
-      const sourceIsCenter = conn.source === model.center.id;
-      const ends = arrowEnds(conn.direction, sourceIsCenter);
+      placed.push({ g, side, anchor, busY, spineX });
+    }
+
+    // Pass 2: one ring segment per group. Around the centre (radial) each segment faces its card;
+    // in the stacked layouts the segments follow the group order clockwise from 12 o'clock.
+    const segs =
+      mode === "radial"
+        ? ringSegments(placed.map((p) => angleFrom(C, p.anchor)))
+        : ringSegments(placed.map((_, i) => (i * 360) / Math.max(1, placed.length)));
+
+    // Pass 3: connectors, leaving the ring from the middle of the group's segment.
+    const links: DrawnLink[] = [];
+    placed.forEach(({ g, side, anchor, busY, spineX }, i) => {
+      const conn = model.connections.find((x) => x.source === g.id || x.target === g.id);
+      if (!conn || !conn.visible) return;
+      const startAngle = mode === "radial" ? segs[i].mid : undefined;
+      const route = routeConnector({ mode, side, shape: look.connector, center: C, anchor, busY, spineX, startAngle });
+      const ends = arrowEnds(conn.direction, conn.source === model.center.id);
       const arrows: DrawnLink["arrows"] = [];
-      if (ends.atGroup) arrows.push({ tip: route.end, dir: route.endDir });
+      // An arrow into the card stops at the port; an arrow into the centre stops at the ring.
+      if (ends.atGroup) arrows.push({ tip: { x: route.end.x - route.endDir.x * PORT_R, y: route.end.y - route.endDir.y * PORT_R }, dir: route.endDir });
       if (ends.atCenter) arrows.push({ tip: route.start, dir: { x: -route.startDir.x, y: -route.startDir.y } });
       const custom = g.color || look.groupColoring === "ramp";
       links.push({
         groupId: g.id,
         d: route.d,
-        label: route.label,
-        text: conn.label,
-        row: mode === "radial" && (side === "top" || side === "bottom"),
+        port: route.end,
         style: conn.style,
         color: custom ? groupColors.get(g.id)?.bg ?? theme.connector : theme.connector,
         arrows,
       });
-    }
-    const next: Geometry = { w: Math.round(s.width), h: Math.round(s.height), links };
+    });
+    const next: Geometry = {
+      w: Math.round(s.width),
+      h: Math.round(s.height),
+      links,
+      segments: placed.map((p, i) => ({ groupId: p.g.id, seg: segs[i] })),
+    };
     const key = JSON.stringify(next);
     if (key !== geoKey.current) {
       geoKey.current = key;
@@ -332,8 +365,15 @@ export function EcosystemMap({
     "--em-center-size": CENTER_SIZE[look.centerSize],
   } as CSSProperties;
 
-  const active = hover ?? selected;
+  // Highlighting follows the selection only (click, tap or keyboard), never the mouse pointer.
+  const active = selected && groups.some((g) => g.id === selected && !g.hidden) ? selected : null;
   const center = model.center;
+  // Ring segments: measured (facing each card) once laid out, evenly by group order before that.
+  const ringGroups = groups.filter((g) => !g.hidden);
+  const segments =
+    geo?.segments.length === ringGroups.length && geo.segments.every((s, i) => s.groupId === ringGroups[i].id)
+      ? geo.segments
+      : ringSegments(ringGroups.map((_, i) => (i * 360) / Math.max(1, ringGroups.length))).map((seg, i) => ({ groupId: ringGroups[i].id, seg }));
   const centerIcon = center.icon ? <Glyph icon={center.icon} /> : null;
   const centerIconEl = slots.centerIcon ? slots.centerIcon(centerIcon) : centerIcon;
   // Smaller centre text for long titles or long single words (never broken mid-word).
@@ -374,7 +414,7 @@ export function EcosystemMap({
           "em-card",
           isSelected && "is-selected",
           active === g.id && "is-active",
-          !editable && selected && !isSelected && "is-dimmed",
+          active && !isSelected && "is-dimmed",
           g.hidden && "is-hidden",
         ]
           .filter(Boolean)
@@ -384,12 +424,6 @@ export function EcosystemMap({
         style={{ "--g": color.bg, "--g-fg": color.fg } as CSSProperties}
         aria-labelledby={editable ? undefined : titleId}
         aria-label={editable ? `Group ${index + 1}: ${g.title || "Untitled"}` : undefined}
-        onMouseEnter={() => setHover(g.id)}
-        onMouseLeave={() => setHover(null)}
-        onFocus={() => setHover(g.id)}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setHover(null);
-        }}
       >
         {slots.groupToolbar?.(g, index)}
         <div className="em-card-head">
@@ -414,12 +448,6 @@ export function EcosystemMap({
           </div>
           <span className="em-visually-hidden">{relation}</span>
         </div>
-        {mode !== "radial" && conn?.visible && conn.label && !g.hidden && (
-          <p className="em-card-relation" aria-hidden="true">
-            <span className="em-card-relation-line" data-style={conn.style} />
-            {conn.label}
-          </p>
-        )}
         <Text
           field={{ kind: "groupDescription", groupId: g.id }}
           value={g.description}
@@ -495,7 +523,7 @@ export function EcosystemMap({
       data-card-style={look.cardStyle}
       data-density={look.density}
       data-connector={look.connector}
-      data-has-selection={selected && groups.some((g) => g.id === selected) ? "" : undefined}
+      data-has-selection={active ? "" : undefined}
       aria-label={model.title || center.title || "Ecosystem map"}
     >
       {(model.title || model.subtitle || editable) && (
@@ -505,7 +533,13 @@ export function EcosystemMap({
           <Text field={{ kind: "subtitle" }} value={model.subtitle} className="em-subtitle" as="p" placeholder="Add a subtitle (optional)" multiline />
         </header>
       )}
-      <div className="em-panel">
+      <div
+        className="em-panel"
+        onClick={(e) => {
+          // A click on an empty area of the map (not on a card) clears the selection.
+          if (active && !(e.target as HTMLElement).closest(".em-card")) select(null);
+        }}
+      >
         <div
           className="em-stage"
           ref={stageRef}
@@ -527,6 +561,17 @@ export function EcosystemMap({
 
           <div className="em-hub">
             <div className="em-center" ref={centerRef} data-style={center.style} data-len={centerLen > 40 ? "long" : centerLen > 22 ? "medium" : "short"}>
+              {center.style === "rings" && (
+                <svg className="em-ring" viewBox="0 0 100 100" aria-hidden="true">
+                  {segments.length === 1 ? (
+                    <circle className={`em-ring-seg${active === segments[0].groupId ? " is-active" : ""}`} data-ring={segments[0].groupId} cx="50" cy="50" r="45" />
+                  ) : (
+                    segments.map(({ groupId, seg }) => (
+                      <path key={groupId} className={`em-ring-seg${active === groupId ? " is-active" : ""}`} data-ring={groupId} d={ringSegmentPath(seg)} />
+                    ))
+                  )}
+                </svg>
+              )}
               <div className="em-center-disc">
                 {centerIconEl && <span className="em-center-icon">{centerIconEl}</span>}
                 <Text field={{ kind: "centerTitle" }} value={center.title} className="em-center-title" as="p" placeholder="Central entity" />
@@ -551,22 +596,20 @@ export function EcosystemMap({
             <div className="em-grid">{groups.map(renderCard)}</div>
           )}
 
-          {mode === "radial" &&
-            geo?.links
-              .filter((l) => l.text)
-              .map((l) => (
-                <span
-                  key={l.groupId}
-                  className={`em-link-label${active === l.groupId ? " is-active" : ""}`}
-                  data-link-label={l.groupId}
-                  data-row={l.row ? "" : undefined}
-                  style={{ left: l.label.x, top: l.label.y, "--link": l.color } as CSSProperties}
-                  title={l.text}
-                  aria-hidden="true"
-                >
-                  <span>{l.text}</span>
-                </span>
-              ))}
+          {/* Ports where connectors meet the cards, drawn above the cards' edges. */}
+          <svg className="em-ports" width={geo?.w ?? 0} height={geo?.h ?? 0} viewBox={`0 0 ${geo?.w ?? 0} ${geo?.h ?? 0}`} aria-hidden="true">
+            {geo?.links.map((l) => (
+              <circle
+                key={l.groupId}
+                className={`em-port${active === l.groupId ? " is-active" : ""}`}
+                data-port={l.groupId}
+                cx={l.port.x}
+                cy={l.port.y}
+                r={PORT_R}
+                style={{ "--link": l.color } as CSSProperties}
+              />
+            ))}
+          </svg>
         </div>
       </div>
     </section>

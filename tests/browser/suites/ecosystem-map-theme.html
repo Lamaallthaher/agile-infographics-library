@@ -130,11 +130,11 @@ async function run() {
   await pick('Heading weight', 'Bold');
 
   // ---- Centre style and size ----
-  for (const s of ['Solid', 'Outline', 'Rings']) { await pick('Centre style', s); }
+  for (const s of ['Solid', 'Outline', 'Segmented ring']) { await pick('Centre style', s); }
   ok('centre style is content (stored with the data) and rendered', stored().center.style === 'rings' && $('.em-center').dataset.style === 'rings');
   await pick('Centre style', 'Outline');
   ok('outline centre: panel fill with a coloured border', $('.em-center').dataset.style === 'outline' && parseFloat(cs($('.em-center-disc'), 'borderTopWidth')) >= 3 && stored().center.style === 'outline');
-  await pick('Centre style', 'Rings');
+  await pick('Centre style', 'Segmented ring');
   const size = async t => { await pick('Centre size', t); return $('.em-center').getBoundingClientRect().width; };
   const ss = [await size('S'), await size('L'), await size('M')];
   ok('centre size S < M < L', ss[0] < ss[2] && ss[2] < ss[1], JSON.stringify(ss.map(Math.round)));

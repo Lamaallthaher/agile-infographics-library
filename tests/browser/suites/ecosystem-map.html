@@ -39,6 +39,8 @@ const field = re => $$('textarea').find(t => re.test(t.getAttribute('aria-label'
 const cards = () => $$('.em-card');
 const card = id => $(`.em-card[data-group="${id}"]`);
 const mode = () => $('.em-stage').dataset.mode;
+/** Text a sighted user sees (screen-reader-only text excluded). */
+const visibleText = el => { const c = el.cloneNode(true); c.querySelectorAll('.em-visually-hidden').forEach(x => x.remove()); return c.textContent; };
 const overlap = (a, b, pad = 0) => a.left < b.right - pad && b.left < a.right - pad && a.top < b.bottom - pad && b.top < a.bottom - pad;
 const groupTool = (id, action) => card(id).querySelector(`.eme-group-tools [data-action="${action}"]`);
 const view = name => click($$('.gl-view button').find(b => b.textContent.trim() === name));
@@ -76,6 +78,9 @@ function integrity(tag, expectMode) {
     const onEdge = inX && inY && (Math.abs(e.x - r.left) < 2 || Math.abs(e.x - r.right) < 2 || Math.abs(e.y - r.top) < 2 || Math.abs(e.y - r.bottom) < 2);
     if (!onEdge) bad.push(`link ${id} does not end on its card`);
   });
+  // Segmented ring: one segment per visible group; one port per drawn connector.
+  if ($('.em-ring') && $$('.em-ring-seg').length !== cs.filter(c => !c.classList.contains('is-hidden')).length) bad.push(`ring segments ${$$('.em-ring-seg').length} != visible groups`);
+  if ($$('.em-port').length !== links.length) bad.push(`ports ${$$('.em-port').length} != links ${links.length}`);
   // Connector labels never cover a card or the centre.
   $$('.em-link-label').forEach(l => {
     const r = l.getBoundingClientRect();
@@ -135,7 +140,18 @@ async function run() {
   const ys = els => els.map(e => e.getBoundingClientRect().top);
   ok('clockwise order: right column = groups 1–3 top→bottom', right.map(c => c.dataset.group).join() === ids.slice(0, 3).join() && ys(right).every((y, i, a) => !i || y > a[i - 1]));
   ok('clockwise order: left column = groups 4–6 bottom→top', left.map(c => c.dataset.group).join() === ids.slice(3).join() && ys(left).every((y, i, a) => !i || y < a[i - 1]));
-  ok('connector labels from data are drawn', $$('.em-link-label').length === 6 && $$('.em-link-label').some(l => l.textContent === 'Quality gates'));
+  ok('no text labels on connectors; relationships kept in data and accessible text', !$('.em-link-label, .em-card-relation') && !/Quality gates/.test(visibleText($('.em-stage'))) && s0.connections.some(c => c.label === 'Quality gates') && /Connected to IT Quality: Quality gates/.test(card('development').querySelector('.em-visually-hidden').textContent));
+  ok('a port marks where each connector meets its card', $$('.em-port').length === 6 && $$('.em-port').every(p => { const l = $(`.em-link[data-link="${p.dataset.port}"] path`); const n = nums(l.getAttribute('d')); return Math.abs(n[n.length - 2] - +p.getAttribute('cx')) < 0.6 && Math.abs(n[n.length - 1] - +p.getAttribute('cy')) < 0.6; }));
+  {
+    // Segmented ring: one segment per group, each connector leaves from the middle of its own segment.
+    const segs = $$('.em-ring-seg'), cen = $('.em-center').getBoundingClientRect(), sv = $('.em-links').getBoundingClientRect();
+    const C = { x: (cen.left + cen.right) / 2, y: (cen.top + cen.bottom) / 2 };
+    const startAngle = id => { const n = nums($(`.em-link[data-link="${id}"] path`).getAttribute('d')); return (Math.atan2(sv.top + n[1] - C.y, sv.left + n[0] - C.x) * 180 / Math.PI + 450) % 360; };
+    const segMid = el => { const b = el.getBBox(); return (Math.atan2(b.y + b.height / 2 - 50, b.x + b.width / 2 - 50) * 180 / Math.PI + 450) % 360; };
+    const diff = (a, b) => Math.abs(((a - b) + 540) % 360 - 180);
+    ok('segmented ring: one segment per group, no segment highlighted without a selection', segs.length === 6 && new Set(segs.map(s => s.dataset.ring)).size === 6 && !$('.em-ring-seg.is-active'));
+    ok('each connector leaves the ring from its own segment', segs.every(s => diff(segMid(s), startAngle(s.dataset.ring)) < 12), JSON.stringify(segs.map(s => [s.dataset.ring, Math.round(segMid(s)), Math.round(startAngle(s.dataset.ring))])));
+  }
   ok('arrowheads follow the direction (both ways = 2 arrows)', $(`.em-link[data-link="development"]`).querySelectorAll('.em-link-arrow').length === 2 && $(`.em-link[data-link="leadership"]`).querySelectorAll('.em-link-arrow').length === 1);
   ok('dashed connector style rendered', $(`.em-link[data-link="other"]`).dataset.style === 'dashed' && getComputedStyle($(`.em-link[data-link="other"] path`)).strokeDasharray !== 'none');
 
@@ -258,6 +274,13 @@ async function run() {
   field(/^Group title \(group 1\)/).focus(); await wait(60);
   const ins = () => $('.eme-inspector');
   ok('focusing a group selects it and opens its inspector', !!ins() && ins().dataset.inspector === ids[0] && card(ids[0]).classList.contains('is-selected'));
+  ok('editor selection: connector, port and ring segment highlighted; other groups dimmed', $(`.em-link[data-link="${ids[0]}"]`).classList.contains('is-active') && $(`.em-port[data-port="${ids[0]}"]`).classList.contains('is-active') && $(`.em-ring-seg[data-ring="${ids[0]}"]`).classList.contains('is-active') && $$('.em-card.is-dimmed').length === 5 && !card(ids[0]).classList.contains('is-dimmed'));
+  card(ids[2]).dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true })); await wait(60);
+  ok('editor: clicking another group switches the selection', ins().dataset.inspector === ids[2] && $('.em-ring-seg.is-active').dataset.ring === ids[2] && card(ids[0]).classList.contains('is-dimmed'));
+  click($('.em-panel')); await wait(60);
+  ok('editor: clicking an empty area of the map clears the selection', !ins() && !$('.em-card.is-selected, .em-card.is-dimmed, .em-link.is-active, .em-ring-seg.is-active'));
+  // The title still has focus from above: blur first so focusing it fires a focus event again.
+  d.activeElement?.blur(); field(/^Group title \(group 1\)/).focus(); await wait(60);
   click(seg(ins(), 'Position (wide layout)', 'Left')); await wait(100);
   ok('position Left: stored and the card moves to the left column', stored().groups[0].side === 'left' && !!$(`.em-side-left > .em-card[data-group="${ids[0]}"]`));
   integrity('group 1 pinned left');
@@ -277,7 +300,7 @@ async function run() {
   const c0 = stored().connections[0];
   ok('arrows To group respects source/target (leadership is the source → backward)', c0.source === ids[0] && c0.direction === 'backward' && $(`.em-link[data-link="${ids[0]}"]`).querySelectorAll('.em-link-arrow').length === 1);
   type(ins().querySelector('input[placeholder^="For example: Reports"]'), 'Sponsors'); await wait(80);
-  ok('connector label edited', stored().connections[0].label === 'Sponsors' && $(`.em-link-label[data-link-label="${ids[0]}"]`).textContent === 'Sponsors');
+  ok('relationship text edited: stored and read out, never drawn on the map', stored().connections[0].label === 'Sponsors' && /Sponsors/.test(card(ids[0]).querySelector('.em-visually-hidden').textContent) && !$('.em-link-label') && !/Sponsors/.test(visibleText($('.em-stage'))));
   const colour = ins().querySelector('input[aria-label="Group colour"]'); type(colour, '#d97706'); await wait(80);
   const badge = card(ids[0]).querySelector('.eme-badge-wrap');
   ok('custom group colour: stored and used by badge and connector', stored().groups[0].color === '#d97706' && /217, 119, 6/.test(getComputedStyle(badge).backgroundColor) && $(`.em-link[data-link="${ids[0]}"]`).style.getPropertyValue('--link') === '#d97706');
@@ -318,13 +341,32 @@ async function run() {
   integrity('display expanded group');
   click(card(ids[2]).querySelector('.em-more')); await wait(60);
   const sel = id => card(id).querySelector('.em-card-select');
-  click(sel(ids[3])); await wait(80);
-  ok('selecting a group: pressed, emphasised; others dimmed; its connector highlighted', sel(ids[3]).getAttribute('aria-pressed') === 'true' && card(ids[3]).classList.contains('is-selected') && card(ids[4]).classList.contains('is-dimmed') && $(`.em-link[data-link="${ids[3]}"]`).classList.contains('is-active') && getComputedStyle($(`.em-link[data-link="${ids[4]}"]`)).opacity < 0.5);
-  click(sel(ids[3])); await wait(60);
-  ok('clicking again clears the selection', sel(ids[3]).getAttribute('aria-pressed') === 'false' && !$('.em-card.is-dimmed'));
-  card(ids[4]).dispatchEvent(new w.MouseEvent('mouseover', { bubbles: true, relatedTarget: d.body })); await wait(60);
-  ok('hovering a group highlights its connector and label', $(`.em-link[data-link="${ids[4]}"]`).classList.contains('is-active') && $(`.em-link-label[data-link-label="${ids[4]}"]`).classList.contains('is-active'));
+  // Hover is not a selection mechanism: pointing at a group changes nothing.
+  for (const t of ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'mousemove']) card(ids[4]).dispatchEvent(new w.MouseEvent(t, { bubbles: true, relatedTarget: d.body }));
+  await wait(60);
+  ok('hovering a group does not select or highlight it', !$('.em-card.is-selected, .em-card.is-active, .em-card.is-dimmed, .em-link.is-active, .em-port.is-active, .em-ring-seg.is-active') && !$('.em').hasAttribute('data-has-selection'), JSON.stringify($$('.em-card.is-selected, .em-card.is-active, .em-card.is-dimmed, .em-link.is-active, .em-port.is-active, .em-ring-seg.is-active').map(e => (e.getAttribute('class') || '') + '#' + (e.dataset.group || e.dataset.link || e.dataset.port || e.dataset.ring))));
   card(ids[4]).dispatchEvent(new w.MouseEvent('mouseout', { bubbles: true, relatedTarget: d.body })); await wait(40);
+  click(sel(ids[3])); await wait(80);
+  ok('clicking a group selects it: pressed, emphasised, others dimmed', sel(ids[3]).getAttribute('aria-pressed') === 'true' && card(ids[3]).classList.contains('is-selected') && cards().filter(c => c.classList.contains('is-dimmed')).length === 4 && !card(ids[3]).classList.contains('is-dimmed'), JSON.stringify({ pressed: sel(ids[3]).getAttribute('aria-pressed'), cards: cards().map(x => x.dataset.group + ':' + x.className) }));
+  ok('…its connector, port and ring segment stay highlighted; other connectors fade', $(`.em-link[data-link="${ids[3]}"]`).classList.contains('is-active') && $(`.em-port[data-port="${ids[3]}"]`).classList.contains('is-active') && $$('.em-ring-seg.is-active').length === 1 && $('.em-ring-seg.is-active').dataset.ring === ids[3] && getComputedStyle($(`.em-link[data-link="${ids[4]}"]`)).opacity < 0.5);
+  const segFill = s => getComputedStyle(s).fill;
+  ok('…the highlighted segment uses the theme\'s active colour', segFill($('.em-ring-seg.is-active')) !== segFill($(`.em-ring-seg[data-ring="${ids[4]}"]`)));
+  await wait(400);
+  ok('the selection persists without any pointer activity', card(ids[3]).classList.contains('is-selected'));
+  click(sel(ids[5])); await wait(60);
+  ok('clicking another group switches the selection', sel(ids[5]).getAttribute('aria-pressed') === 'true' && sel(ids[3]).getAttribute('aria-pressed') === 'false' && $('.em-ring-seg.is-active').dataset.ring === ids[5] && card(ids[3]).classList.contains('is-dimmed'));
+  click(sel(ids[5])); await wait(60);
+  ok('clicking the selected group again clears the selection', sel(ids[5]).getAttribute('aria-pressed') === 'false' && !$('.em-card.is-dimmed') && !$('.em-ring-seg.is-active'));
+  click(sel(ids[2])); await wait(60);
+  click($('.em-panel')); await wait(60);
+  ok('clicking an empty area of the map clears the selection', !$('.em-card.is-selected, .em-card.is-dimmed, .em-link.is-active'));
+  click(sel(ids[2])); await wait(60);
+  click($('.em-center-disc')); await wait(60);
+  ok('clicking the centre also clears it (no card under the pointer)', !$('.em-card.is-selected'));
+  card(ids[1]).querySelector('.em-card-select').dispatchEvent(new w.PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }));
+  click(sel(ids[1])); await wait(60);
+  ok('touch: a tap selects like a click', card(ids[1]).classList.contains('is-selected'));
+  click(sel(ids[1])); await wait(40);
   // Keyboard
   sel(ids[1]).focus(); key(sel(ids[1]), 'ArrowRight'); await wait(40);
   ok('→ moves focus to the next group (data order)', d.activeElement === sel(ids[2]));
@@ -338,7 +380,10 @@ async function run() {
   ok('decorative connector SVG hidden from assistive technology', $('.em-links').getAttribute('aria-hidden') === 'true');
   await load(800); view('Display'); await wait(200);
   integrity('display 800', 'columns');
-  ok('compact layouts show connector labels inside the cards', /Assurance/.test(card(ids[1]).querySelector('.em-card-relation')?.textContent || ''));
+  ok('compact layouts: no connector labels either; ring and ports still shown', !$('.em-card-relation, .em-link-label') && $$('.em-ring-seg').length === 5 && $$('.em-port').length === $$('.em-link').length);
+  click(card(ids[2]).querySelector('.em-card-select')); await wait(60);
+  ok('compact layouts: click selection highlights the group, connector and segment', card(ids[2]).classList.contains('is-selected') && $(`.em-link[data-link="${ids[2]}"]`).classList.contains('is-active') && $('.em-ring-seg.is-active')?.dataset.ring === ids[2]);
+  click(card(ids[2]).querySelector('.em-card-select')); await wait(40);
   await load(390); view('Display'); await wait(200);
   integrity('display 390', 'stack');
   view('Edit'); await wait(200);

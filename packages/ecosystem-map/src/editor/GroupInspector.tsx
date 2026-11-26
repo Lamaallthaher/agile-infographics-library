@@ -171,7 +171,7 @@ export function GroupInspector({ group: g, index, count, connection: c, centerId
           />
           <div className="eme-field">
             <label className="eme-field-label" htmlFor={`${id}-label`}>
-              Connector label (optional)
+              Relationship (optional)
             </label>
             <input
               id={`${id}-label`}
@@ -179,9 +179,13 @@ export function GroupInspector({ group: g, index, count, connection: c, centerId
               type="text"
               maxLength={L.connectionLabel}
               placeholder="For example: Reports to"
+              aria-describedby={`${id}-label-hint`}
               value={c.label}
               onChange={(e) => actions.updateConnection(g.id, { label: e.target.value })}
             />
+            <p id={`${id}-label-hint`} className="te-hint">
+              Not drawn on the map; kept in the data and read out by screen readers.
+            </p>
           </div>
         </div>
       </fieldset>

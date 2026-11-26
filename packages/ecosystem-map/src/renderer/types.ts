@@ -201,6 +201,8 @@ export interface EcosystemTheme {
   connectorActive: string;
   centerFill: string;
   centerRing: string;
+  /** Segments of the ring around the centre (the selected group's segment uses connectorActive). */
+  ringSegment: string;
   centerText: string;
   centerSubtitle: string;
   /** Group colours run from groupFrom to groupTo (or all groupFrom when uniform). */

@@ -79,10 +79,12 @@ export function EcosystemPage() {
 | `expandedGroupIds?` / `onToggleExpanded?` | `string[]` / `(id, expanded) => void` | Controlled expansion of collapsed groups. |
 
 What a viewer can do in display mode:
-- **Hover** a group to highlight its connector.
-- **Select** a group with a click, <kbd>Enter</kbd> or <kbd>Space</kbd>. This
-  emphasises the group and its items and dims the others. Click again or press
-  <kbd>Esc</kbd> to clear the selection.
+- **Select** a group with a click, a tap, <kbd>Enter</kbd> or <kbd>Space</kbd>.
+  The group, its items, its connector and its segment of the centre ring stay
+  highlighted, and the other groups are dimmed. Clicking another group
+  switches the selection. Click the selected group again, click an empty
+  area of the map, or press <kbd>Esc</kbd> to clear it.
+- Selection never follows the mouse pointer: hovering changes nothing.
 - **Move between groups** with <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd>
   <kbd>↓</kbd> <kbd>Home</kbd> <kbd>End</kbd>.
 - **Expand a long group** with "Show all N items".
@@ -119,7 +121,7 @@ Everything happens on one screen:
 | Items | <kbd>Enter</kbd> in an item adds the next one. <kbd>Backspace</kbd> in an empty item removes it. Use **+ Add item**. Hover an item for ↑ ↓ and × (delete, with **Undo**). <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> also reorders. |
 | Groups | **+ Add group** in the toolbar. Hover a group for ‹ › (move anticlockwise or clockwise), **+** (insert after) and the bin (delete, with **Undo**). <kbd>Alt</kbd> + <kbd>←</kbd> / <kbd>→</kbd> also moves a group. |
 | Icons | Click a group's badge or the centre icon. |
-| Group settings | Select a group (click it or any of its text). The **Selected group** panel holds its position (automatic, top, right, bottom or left), colour, visibility in display mode, and icon. It also holds the connection settings: show or hide, solid, dashed or dotted, arrowheads (to group, to centre, both ways) and a label. |
+| Group settings | Select a group (click it or any of its text). The **Selected group** panel holds its position (automatic, top, right, bottom or left), colour, visibility in display mode, and icon. It also holds the connection settings: show or hide, solid, dashed or dotted, arrowheads (to group, to centre, both ways) and a relationship text. The relationship text isn't drawn on the map; it is kept in the data and read out by screen readers. In the editor, clicking a group selects it and clicking an empty area of the map clears the selection. |
 | Item settings | Click an item. The panel adds its link (validated), a short tag and an icon. |
 | Appearance | The **Appearance** panel (see below). |
 | Reuse the data | **Data (JSON import / export)**: copy the content as JSON, or paste JSON to import it. Imported data is validated: errors block the import and corrections are listed. |
@@ -147,7 +149,7 @@ interface EcosystemMapInput {
     id?: string;
     source: string;                           // the centre's id or a group id; one end must be the centre
     target: string;
-    label?: string;
+    label?: string;                           // relationship text: kept in the data and read by screen readers, not drawn
     visible?: boolean;
     style?: "solid" | "dashed" | "dotted";
     direction?: "none" | "forward" | "backward" | "both";   // forward = arrow at the target
@@ -212,6 +214,16 @@ its own. It picks a mode from the measured width:
   - left and right groups: within the gutter
   - top and bottom groups: along a bus in the row gap
   - narrow modes: along the spine
+- **Clean connectors:** thin lines with no text on them. Each one ends in a
+  small port on the card's edge. Arrowheads appear only when the connection
+  has a direction.
+- **Segmented centre ring:** the default centre has one ring segment per
+  visible group (`ringSegments`).
+  - The ring rotates so that each segment faces its group, and each connector
+    leaves from the middle of its group's segment.
+  - In the two narrow layouts the segments follow the group order, clockwise
+    from 12 o'clock.
+  - The selected group's segment is highlighted.
 - **Layout preference:** `appearance.layout` can force `radial`, `columns` or
   `stack`. A preferred mode that doesn't fit falls back to the next narrower
   one, so nothing is ever clipped.
@@ -246,8 +258,15 @@ interface EcosystemAppearance {
     light card colour automatically gets dark text.
   - `checkEcosystemContrast()` lists the key text pairs, and the editor shows a
     warning when a manual override falls below 4.5:1.
-- **Centre style:** the centre's style (`rings`, `solid` or `outline`) belongs
-  to the content (`center.style`), because it is part of what the map says.
+- **Centre style:** the centre's style belongs to the content
+  (`center.style`), because it is part of what the map says.
+  - `rings`: the segmented ring around a bordered disc; the default, shown in
+    the editor as "Segmented ring"
+  - `solid`: a plain filled disc
+  - `outline`: an outlined disc
+- **Ring colours:** the segments use the theme's `ringSegment` colour
+  (`--em-ring-segment`), and the selected segment uses `connectorActive`.
+  Both are generated from the primary and secondary colours in either scheme.
 
 ## Using it without the other components
 
