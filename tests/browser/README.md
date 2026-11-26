@@ -17,8 +17,8 @@ npm run test:browser -- --verbose             # also list every passing check
   Chrome or Chromium). The runner finds it automatically; set
   `BROWSER=/path/to/browser` to choose one.
 - **No test dependencies:** nothing is installed for testing.
-- **Exit codes:** `0` all passed, `1` a check failed, `2` the run could not
-  start (no build or no browser).
+- **Exit codes:** `0` all passed, `1` a check failed or a test browser was
+  left running, `2` the run could not start (no build or no browser).
 
 | Suite | Component | Checks | What it covers |
 |---|---|---|---|
@@ -40,6 +40,14 @@ Local Storage starts empty. The wrapper loads the suite, which loads the
 gallery in an iframe and runs its checks. When the suite writes
 `SUMMARY x/y passed` into its `<pre id="out">`, the wrapper posts that text back
 to the runner. The runner then closes the browser and prints the result.
+
+**Closing the browser:** the runner stops every process whose command line
+contains that suite's unique profile folder, not just the process it started.
+Edge on Windows can relaunch itself under a new process ID, so stopping by
+process ID alone would leave it running. The same cleanup runs when a suite
+fails, times out, or the runner is interrupted (Ctrl+C) or crashes. At the end,
+the runner reports how many test browser processes are still running (expected
+`0`) and fails if any are.
 
 Each suite is a self-contained HTML page with no build step. Open one in a
 browser on the same origin as a gallery build to watch it run. For example,
